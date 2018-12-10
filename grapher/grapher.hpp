@@ -5,9 +5,10 @@
 #if !defined(H_GRAPHER)
 #define H_GRAPHER
 
-#include "gnuplot-iostream/gnuplot-iostream.h"
+#include "../gnuplot-iostream/gnuplot-iostream.h"
 #include <vector>
 #include <iostream>
+#include <valarray>
 
 namespace grapher {
   /** @namespace grapher
@@ -41,8 +42,8 @@ namespace grapher {
 
   }
 
-  template <typename T>
-  void plot_points(std::vector<T> const &xs, std::vector<T> const &ys){
+  template <typename T, typename F>
+  void plot_points(T const &xs, F const &ys){
     /**
      * Scatter plots a pair of vectors of samples.
      * 
@@ -50,9 +51,30 @@ namespace grapher {
      * @param ys Vector of y values
      */
     Gnuplot gp;
-    gp << "set xrange [0:10]\nset yrange[0:" << 2*M_PI << "]\n";
-    gp << "plot '-' with points pt 5\n";
-    gp.send1d(std::tie(xs, ys));
+    // gp << "set xrange [0:10]\nset yrange[0:" << 2*M_PI << "]\n";
+    gp << "plot '-' with points pt 4\n";
+
+    gp.send1d(std::make_tuple(xs, ys));
+  }
+
+  template <typename F, typename T>
+  int plot_line(Gnuplot &gp, F const &ys, const T &xs){
+    /**
+     * Scatter plots a pair of vectors of samples.
+     * 
+     * @param xs Vector of x values
+     * @param ys Vector of y values
+     */
+    gp << gp.file1d(std::make_tuple(xs, ys)) << "with lines ls 2, \\\n";
+   
+    return 0;
+  }
+
+  template <typename F, typename ... Ts>
+  void plot_lines(Gnuplot &gp, F const &ys, Ts ... xss){
+    gp << "plot ";
+    [](...){}(plot_line(gp, ys, xss)...);
+    gp << std::endl;
   }
 }
 

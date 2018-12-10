@@ -4,6 +4,8 @@ project(ProjectModelling VERSION 0.1.0)
 add_compile_options(-Wextra -Wshadow -Wnon-virtual-dtor -pedantic)
 
 find_package(OpenMP REQUIRED)
+find_package(Boost REQUIRED COMPONENTS iostreams system filesystem)
+
 find_library(NETCDFCPP netcdf-cxx4)
 
 include(CTest)
@@ -12,6 +14,7 @@ enable_testing()
 add_executable(ProjectModelling main.cpp)
 target_link_libraries(ProjectModelling PRIVATE OpenMP::OpenMP_CXX)
 add_subdirectory(grapher)
+target_link_libraries(ProjectModelling PUBLIC ${Boost_LIBRARIES})
 
 
 set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD 14)

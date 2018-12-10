@@ -17,7 +17,9 @@
     "iostream": "cpp",
     "vector": "cpp",
     "ostream": "cpp",
-    "iterator": "cpp"
+    "iterator": "cpp",
+    "cmath": "cpp",
+    "complex": "cpp"
   },
   "C_Cpp.configurationWarnings": "Disabled",
   "spellright.language": [
