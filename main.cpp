@@ -5,9 +5,11 @@
 #include <iostream>
 #include <netcdf>
 #include <vector>
-#include <fftw3.h>
+#include <array>
 #include <numeric>
-#include <tuple>
+#include <mutex>
+
+#include "fftw3.h"
 #include "boost/filesystem.hpp"
 #include "grapher.hpp"
 #include "speed_of_sound.hpp"
@@ -22,7 +24,7 @@ std::vector<float> low_pass_filter(const std::vector<float> &vector, const size_
     i -= average;
 
   std::vector<float> out(in.size());
-  fftwf_complex *fft = (fftwf_complex *) fftwf_malloc(sizeof(fftwf_complex) * in.size() / 2 + 1);
+  fftwf_complex *fft = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * in.size() / 2 + 1);
   fftwf_plan forward = fftwf_plan_dft_r2c_1d(in.size(), in.data(), fft, FFTW_ESTIMATE);
   fftwf_execute(forward);
   fftwf_destroy_plan(forward);
@@ -47,10 +49,12 @@ std::vector<float> low_pass_filter(const std::vector<float> &vector, const size_
   return out;
 }
 
-std::vector<float> moving_average(const std::vector<float> &vector, const size_t period = 10){
+std::vector<float> moving_average(const std::vector<float> &vector, const size_t period = 10)
+{
   std::vector<float> output(vector.size() - period);
-  for (size_t i = 0; i < vector.size() - period; i++){
-    output[i] = std::accumulate(std::begin(vector) + i, std::begin(vector) + i + period, 0)/period;
+  for (size_t i = 0; i < vector.size() - period; i++)
+  {
+    output[i] = std::accumulate(std::begin(vector) + i, std::begin(vector) + i + period, 0) / period;
   }
   return output;
 }
@@ -64,7 +68,7 @@ size_t find_SOFAR_channel(const std::vector<float> &speed_of_sound)
   auto end = std::end(speed_of_sound);
   auto begin = 1 + std::begin(speed_of_sound);
 
-  float minimum = MAXFLOAT;
+  float minimum = std::numeric_limits<float>::max();
   std::vector<float_t>::const_iterator min_pos = std::end(speed_of_sound);
 
   for (; begin != end - 1; begin++)
@@ -109,7 +113,8 @@ size_t find_SOFAR_channel(const std::vector<float> &speed_of_sound)
 typedef std::vector<float> argodata_t;
 typedef std::vector<argodata_t> argotable_t;
 
-struct [[nodiscard]] argodata_struct {
+struct argodata_struct
+{
   argotable_t depths;
   argotable_t speeds_of_sound;
   argodata_t lats;
@@ -117,28 +122,42 @@ struct [[nodiscard]] argodata_struct {
   argodata_t dates;
 };
 
-const argodata_struct read_file_data(fs::path filepath){
+const argodata_struct read_file_data(fs::path filepath)
+{
   using namespace netCDF;
   NcFile datafile(filepath.string(), NcFile::read);
 
   static const size_t N_PROF = datafile.getDim("N_PROF").getSize();
   static const size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
 
-  argodata_struct data {
-    argotable_t(),
-    argotable_t(),
-    argodata_t(N_PROF),
-    argodata_t(N_PROF),
-    argodata_t(N_PROF)
-  };
+  argodata_struct data{
+      argotable_t(),
+      argotable_t(),
+      argodata_t(N_PROF),
+      argodata_t(N_PROF),
+      argodata_t(N_PROF)};
 
   data.depths.reserve(N_PROF);
   data.speeds_of_sound.reserve(N_PROF);
 
-  NcVar latsVar, longsVar, dateVar;
+  NcVar latsVar, longsVar, dateVar, platformVar;
   latsVar = datafile.getVar("LATITUDE");
   longsVar = datafile.getVar("LONGITUDE");
   dateVar = datafile.getVar("JULD");
+  platformVar = datafile.getVar("PLATFORM_NUMBER");
+
+  std::vector<std::array<char, 8>> names(N_PROF);
+  platformVar.getVar(names.data());
+
+  {
+    std::fstream f("platforms.txt", std::fstream::out);
+    for (auto name: names)
+      {
+        f << std::string(name.begin(), name.end()) << std::endl;
+      }
+  }
+
+
 
   NcVar tempVar, depthVar, salinityVar;
   tempVar = datafile.getVar("TEMP");
@@ -152,6 +171,7 @@ const argodata_struct read_file_data(fs::path filepath){
   longsVar.getVar(data.longs.data());
   dateVar.getVar(data.dates.data());
 
+  std::mutex data_mutex;
 
   for (size_t j = 0; j < N_PROF; j++)
   {
@@ -168,6 +188,7 @@ const argodata_struct read_file_data(fs::path filepath){
     tempVar.getVar(start, count, tempIn.data());
     depthVar.getVar(start, count, depthIn.data());
 
+#pragma omp parallel for
     for (size_t i = 0; i < N_LEVELS; i++)
     {
       if (tempIn[i] != 99999 && salIn[i] != 99999 && depthIn[i] != 99999)
@@ -194,9 +215,11 @@ const argodata_struct read_file_data(fs::path filepath){
       auto size = std::abs(std::distance(std::begin(speed_of_sound_vec), it));
       speed_of_sound_vec.resize(size);
       depthIn.resize(size);
-
-      data.depths.push_back(depthIn);
-      data.speeds_of_sound.push_back(speed_of_sound_vec);
+      {
+        std::lock_guard<std::mutex> guard(data_mutex);
+        data.depths.push_back(depthIn);
+        data.speeds_of_sound.push_back(speed_of_sound_vec);
+      }
     }
   }
   return std::move(data);
@@ -213,10 +236,9 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  fs::path argument (argv[1]);
+  fs::path argument(argv[1]);
 
   auto data = read_file_data(argument);
-  
 
   std::cout << "[INFO]: FINISHED PROCESSING\n"
             << std::endl;
@@ -229,17 +251,8 @@ int main(int argc, char *argv[])
     auto depth_vect = data.depths[i];
     auto index = find_SOFAR_channel(sos_vect);
     // f << "At " << lats[i] << ":" << longs[i] << " at " << dates[i];
-    f  << ", the SOFAR minimum is " << depth_vect[index] << "m under the surface"
+    f << ", the SOFAR minimum is " << depth_vect[index] << "m under the surface"
       << std::endl;
-
-    /*
-    std::vector<float_t> difference(N_LEVELS, 0);
-    for (size_t j = 1; j < N_LEVELS; j++)
-    {
-            if (depth_vect[j] - depth_vect[j - 1] != 0 && !isnan(depth_vect[j])
-    && !isnan(depth_vect[j-1])) difference[j] = (sos_vect[j] - sos_vect[j - 1])
-    / (depth_vect[j] - depth_vect[j - 1]);
-    }*/
 
     auto vect = low_pass_filter(sos_vect);
     depth_vect.resize(vect.size());

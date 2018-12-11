@@ -9,7 +9,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/ProjectModelling",
-      "args": ["10", "data/EN.4.2.1.f.profiles.g10.201807.nc"],
+      "args": ["data/EN.4.2.1.f.profiles.g10.201807.nc"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],

@@ -12,9 +12,8 @@ include(CTest)
 enable_testing()
 
 add_executable(ProjectModelling main.cpp)
-target_link_libraries(ProjectModelling PRIVATE OpenMP::OpenMP_CXX)
+target_link_libraries(ProjectModelling PRIVATE OpenMP::OpenMP_CXX ${Boost_LIBRARIES})
 add_subdirectory(grapher)
-target_link_libraries(ProjectModelling PUBLIC ${Boost_LIBRARIES})
 
 
 set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD 14)
@@ -24,7 +23,6 @@ set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
-set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD 17)
 target_link_libraries( ${PROJECT_NAME} PUBLIC ${NETCDFCPP} fftw3f fftw3f_threads)
 
 

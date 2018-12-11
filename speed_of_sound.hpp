@@ -37,7 +37,7 @@ template <class T> T pressure_at_depth(T depth, T latitude = -30.0) {
 }
 
 template <class T>
-[[nodiscard]] constexpr T speed_of_sound(const T &p, const T &t, const T &s) {
+constexpr T speed_of_sound(const T &p, const T &t, const T &s) {
   auto p_kpa = p / 100;
   using std::vector;
 
