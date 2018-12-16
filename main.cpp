@@ -2,8 +2,6 @@
 
 #include <cmath>
 #include <cstdio>
-#include <cstddef>
-
 #include <fstream>
 #include <iostream>
 #include <netcdf>
@@ -19,9 +17,8 @@
 #include "speed_of_sound.hpp"
 
 namespace fs = boost::filesystem;
-using std::size_t;
 
-size_t find_SOFAR_channel(const std::vector<float> &speed_of_sound)
+std::size_t find_SOFAR_channel(const std::vector<float> &speed_of_sound)
 {
   std::vector<std::vector<float>::const_iterator> minima;
   std::vector<std::vector<float>::const_iterator> maxima;
@@ -89,8 +86,8 @@ const argodata_struct read_file_data(fs::path filepath)
   using namespace netCDF;
   NcFile datafile(filepath.string(), NcFile::read);
 
-  static const size_t N_PROF = datafile.getDim("N_PROF").getSize();
-  static const size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
+  static const std::size_t N_PROF = datafile.getDim("N_PROF").getSize();
+  static const std::size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
 
   argodata_struct data{
       argotable_t(),
@@ -135,7 +132,7 @@ const argodata_struct read_file_data(fs::path filepath)
 
   std::mutex data_mutex;
 
-  for (size_t j = 0; j < N_PROF; j++)
+  for (std::size_t j = 0; j < N_PROF; j++)
   {
     auto tempIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
     auto salIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
@@ -143,15 +140,15 @@ const argodata_struct read_file_data(fs::path filepath)
     auto speed_of_sound_vec =
         std::vector<float_t>(N_LEVELS, std::nan("nodata"));
 
-    std::vector<size_t> start{j, 0};
-    std::vector<size_t> count{1, N_LEVELS};
+    std::vector<std::size_t> start{j, 0};
+    std::vector<std::size_t> count{1, N_LEVELS};
 
     salinityVar.getVar(start, count, salIn.data());
     tempVar.getVar(start, count, tempIn.data());
     depthVar.getVar(start, count, depthIn.data());
 
   #pragma omp parallel for
-    for (size_t i = 0; i < N_LEVELS; i++)
+    for (std::size_t i = 0; i < N_LEVELS; i++)
     {
       if (tempIn[i] != 99999 && salIn[i] != 99999 && depthIn[i] != 99999)
       {
@@ -207,7 +204,7 @@ int main(int argc, char *argv[])
 
   std::fstream f("channels.txt", std::fstream::out);
 
-  for (size_t i = 0; i < 10; i++)
+  for (std::size_t i = 0; i < 10; i++)
   {
     auto sos_vect = data.speeds_of_sound[i];
     auto depth_vect = data.depths[i];

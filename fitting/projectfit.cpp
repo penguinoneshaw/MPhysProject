@@ -1,11 +1,11 @@
 #include "projectfit.hpp"
+#include <cstddef>
 #include <vector>
 #include <cmath>
 #include "fftw3.h"
 #include <numeric>
-#include <cstddef>
 
-std::vector<float> low_pass_filter(const std::vector<float> &vector, const size_t cutoff)
+std::vector<float> low_pass_filter(const std::vector<float> &vector, const std::size_t cutoff)
 {
   std::vector<float> in(vector);
   float average = std::accumulate(in.begin(), in.end(), 0) / in.size();
@@ -18,7 +18,7 @@ std::vector<float> low_pass_filter(const std::vector<float> &vector, const size_
   fftwf_execute(forward);
   fftwf_destroy_plan(forward);
 
-  for (size_t i = 0; i < in.size() / 2 + 1; i++)
+  for (std::size_t i = 0; i < in.size() / 2 + 1; i++)
   {
     float window = 1.0 ? i < cutoff : std::sqrt(std::exp(-(i - cutoff) * (i - cutoff) / 10.0));
     fft[i][0] *= window;
@@ -29,7 +29,7 @@ std::vector<float> low_pass_filter(const std::vector<float> &vector, const size_
   fftwf_execute(backward);
   fftwf_free(fft);
 
-  for (size_t i = 0; i < out.size(); i++)
+  for (std::size_t i = 0; i < out.size(); i++)
   {
     out[i] /= out.size();
     out[i] += average;
@@ -38,10 +38,10 @@ std::vector<float> low_pass_filter(const std::vector<float> &vector, const size_
   return out;
 }
 
-std::vector<float> moving_average(const std::vector<float> &vector, const size_t period)
+std::vector<float> moving_average(const std::vector<float> &vector, const std::size_t period)
 {
   std::vector<float> output(vector.size() - period);
-  for (size_t i = 0; i < vector.size() - period; i++)
+  for (std::size_t i = 0; i < vector.size() - period; i++)
   {
     output[i] = std::accumulate(std::begin(vector) + i, std::begin(vector) + i + period, 0) / period;
   }
