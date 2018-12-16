@@ -22,7 +22,8 @@ set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(HOME)
-target_include_directories(ProjectModelling PRIVATE "${HOME}/include" MINUIT2)
+target_include_directories(ProjectModelling PRIVATE "${HOME}/include")
+target_include_directories(ProjectFit PRIVATE "${HOME}/include")
 endif(HOME)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
