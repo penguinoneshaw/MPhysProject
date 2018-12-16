@@ -8,6 +8,7 @@ find_package(Boost REQUIRED COMPONENTS iostreams system filesystem)
 
 find_library(NETCDFCPP netcdf-cxx4)
 find_library(NETCDF netcdf)
+find_library(MINUIT2 minuit2)
 include(CTest)
 enable_testing()
 
@@ -16,12 +17,12 @@ add_subdirectory(fitting)
 add_subdirectory(grapher)
 
 
-set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD 17)
+set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD 14)
 set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(HOME)
-target_include_directories(ProjectModelling PRIVATE "${HOME}/include")
+target_include_directories(ProjectModelling PRIVATE "${HOME}/include" MINUIT2)
 endif(HOME)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
@@ -29,4 +30,4 @@ set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
 target_link_libraries(ProjectModelling PUBLIC ProjectFit)
-target_link_libraries(ProjectModelling PRIVATE ${NETCDFCPP} ${NETCDF} OpenMP::OpenMP_CXX ${Boost_LIBRARIES} Minuit2)
+target_link_libraries(ProjectModelling PRIVATE ${NETCDFCPP} ${NETCDF} OpenMP::OpenMP_CXX ${Boost_LIBRARIES} MINUIT2)
