@@ -3,6 +3,7 @@
 #include <cmath>
 #include "fftw3.h"
 #include <numeric>
+#include <cstddef>
 
 std::vector<float> low_pass_filter(const std::vector<float> &vector, const size_t cutoff)
 {
