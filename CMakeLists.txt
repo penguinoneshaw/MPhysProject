@@ -6,9 +6,6 @@ add_compile_options(-Wextra -Wnon-virtual-dtor -pedantic)
 find_package(OpenMP REQUIRED)
 find_package(Boost REQUIRED COMPONENTS iostreams system filesystem)
 
-find_library(NETCDFCPP netcdf-cxx4)
-find_library(NETCDF netcdf)
-find_library(MINUIT2 minuit2)
 include(CTest)
 enable_testing()
 
@@ -31,4 +28,4 @@ set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
 target_link_libraries(ProjectModelling PUBLIC ProjectFit)
-target_link_libraries(ProjectModelling PRIVATE ${NETCDFCPP} ${NETCDF} OpenMP::OpenMP_CXX ${Boost_LIBRARIES} MINUIT2)
+target_link_libraries(ProjectModelling PRIVATE netcdf-cxx4 netcdf OpenMP::OpenMP_CXX ${Boost_LIBRARIES})
