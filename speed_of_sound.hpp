@@ -15,17 +15,20 @@ const std::vector<std::vector<T>> C_coeffs{
     {0.153563, 6.8999e-4, -8.1829e-6, 1.3632e-7, -6.1260e-10, 0},
     {3.1260e-5, -1.7111e-6, 2.5986e-8, -2.5353e-10, 1.0415e-12, 0},
     {-9.7729e-9, 3.8513e-10, -2.3654e-12, 0, 0, 0}};
+
 template <class T>
 const std::vector<std::vector<T>> A_coeffs{
     {1.389, -1.262E-2, 7.166E-5, 2.008E-6, -3.21E-8},
     {9.4742E-5, -1.2583E-5, -6.4928E-8, 1.0515E-8, -2.0142E-10},
     {-3.9064E-7, 9.1061E-9, -1.6009E-10, 7.994E-12, 0},
     {1.100E-10, 6.651E-12, -3.391E-13, 0, 0}};
+
 template <class T>
 const std::vector<std::vector<T>> B_coeffs{{-1.922E-2, -4.42E-5},
                                            {7.3637E-5, 1.7950E-7}};
                                            
-template <class T> T pressure_at_depth(T depth, T latitude = -30.0) {
+template <class T> 
+const T pressure_at_depth(T depth, T latitude = -30.0) {
   latitude = latitude * M_PI / 180.0;
   T h = depth * (1.00818e-2 +
                  depth * (2.465e-8 + depth * (-1.25e-13 + depth * 2.8e-19)));

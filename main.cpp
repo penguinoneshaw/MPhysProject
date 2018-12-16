@@ -10,55 +10,13 @@
 #include <numeric>
 #include <mutex>
 
-#include "fftw3.h"
+#include "fitting/projectfit.hpp"
 #include "boost/filesystem.hpp"
+
 #include "grapher.hpp"
 #include "speed_of_sound.hpp"
 
 namespace fs = boost::filesystem;
-
-std::vector<float> low_pass_filter(const std::vector<float> &vector, const size_t cutoff = 15)
-{
-  std::vector<float> in(vector);
-  float average = std::accumulate(in.begin(), in.end(), 0) / in.size();
-  for (auto &i : in)
-    i -= average;
-
-  std::vector<float> out(in.size());
-  fftwf_complex *fft = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * in.size() / 2 + 1);
-  fftwf_plan forward = fftwf_plan_dft_r2c_1d(in.size(), in.data(), fft, FFTW_ESTIMATE);
-  fftwf_execute(forward);
-  fftwf_destroy_plan(forward);
-
-  for (size_t i = 0; i < in.size() / 2 + 1; i++)
-  {
-    float window = 1.0 ? i < cutoff : std::sqrtf(std::expf(-(i - cutoff) * (i - cutoff) / 10.0));
-    fft[i][0] *= window;
-    fft[i][1] *= window;
-  }
-
-  fftwf_plan backward = fftwf_plan_dft_c2r_1d(in.size(), fft, out.data(), FFTW_ESTIMATE);
-  fftwf_execute(backward);
-  fftwf_free(fft);
-
-  for (size_t i = 0; i < out.size(); i++)
-  {
-    out[i] /= out.size();
-    out[i] += average;
-  }
-
-  return out;
-}
-
-std::vector<float> moving_average(const std::vector<float> &vector, const size_t period = 10)
-{
-  std::vector<float> output(vector.size() - period);
-  for (size_t i = 0; i < vector.size() - period; i++)
-  {
-    output[i] = std::accumulate(std::begin(vector) + i, std::begin(vector) + i + period, 0) / period;
-  }
-  return output;
-}
 
 size_t find_SOFAR_channel(const std::vector<float> &speed_of_sound)
 {
@@ -189,7 +147,7 @@ const argodata_struct read_file_data(fs::path filepath)
     tempVar.getVar(start, count, tempIn.data());
     depthVar.getVar(start, count, depthIn.data());
 
-#pragma omp parallel for
+  #pragma omp parallel for
     for (size_t i = 0; i < N_LEVELS; i++)
     {
       if (tempIn[i] != 99999 && salIn[i] != 99999 && depthIn[i] != 99999)
@@ -251,7 +209,7 @@ int main(int argc, char *argv[])
     auto sos_vect = data.speeds_of_sound[i];
     auto depth_vect = data.depths[i];
     auto index = find_SOFAR_channel(sos_vect);
-    // f << "At " << lats[i] << ":" << longs[i] << " at " << dates[i];
+    f << "At " << data.lats[i] << ":" << data.longs[i] << " at " << data.dates[i];
     f << ", the SOFAR minimum is " << depth_vect[index] << "m under the surface"
       << std::endl;
 
