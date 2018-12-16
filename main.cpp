@@ -19,6 +19,7 @@
 #include "speed_of_sound.hpp"
 
 namespace fs = boost::filesystem;
+using std::size_t;
 
 size_t find_SOFAR_channel(const std::vector<float> &speed_of_sound)
 {
