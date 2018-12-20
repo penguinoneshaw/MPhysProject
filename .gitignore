@@ -45,6 +45,7 @@ build/*
 
 # Results
 *.txt
+images/*
 
 .vscode/*
 !.vscode/settings.json

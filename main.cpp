@@ -10,6 +10,11 @@
 #include <numeric>
 #include <mutex>
 
+#include "root/Minuit2/FunctionMinimum.h"
+#include "root/Minuit2/MnMigrad.h"
+#include "root/Minuit2/MnPrint.h"
+#include "root/Minuit2/MnUserParameters.h"
+
 #include "fitting/projectfit.hpp"
 #include "boost/filesystem.hpp"
 
@@ -79,6 +84,7 @@ struct argodata_struct
   argodata_t lats;
   argodata_t longs;
   argodata_t dates;
+  std::vector<std::string> platforms;
 };
 
 const argodata_struct read_file_data(fs::path filepath)
@@ -94,10 +100,13 @@ const argodata_struct read_file_data(fs::path filepath)
       argotable_t(),
       argodata_t(N_PROF),
       argodata_t(N_PROF),
-      argodata_t(N_PROF)};
+      argodata_t(N_PROF),
+      std::vector<std::string>()
+      };
 
   data.depths.reserve(N_PROF);
   data.speeds_of_sound.reserve(N_PROF);
+  data.platforms.reserve(N_PROF);
 
   NcVar latsVar, longsVar, dateVar, platformVar;
   latsVar = datafile.getVar("LATITUDE");
@@ -108,15 +117,12 @@ const argodata_struct read_file_data(fs::path filepath)
   std::vector<std::array<char, 8>> names(N_PROF);
   platformVar.getVar(names.data());
 
-  {
-    std::fstream f("platforms.txt", std::fstream::out);
-    for (auto name: names)
-      {
-        f << std::string(name.begin(), name.end()) << std::endl;
-      }
-  }
-
-
+  for (auto name: names)
+    {
+      auto strnm = std::string(name.begin(), name.end());
+      std::string::iterator end_pos = std::remove(strnm.begin(), strnm.end(), ' ');
+      data.platforms.push_back(std::string(strnm.begin(), end_pos));
+    }
 
   NcVar tempVar, depthVar, salinityVar;
   tempVar = datafile.getVar("TEMP");
@@ -202,26 +208,39 @@ int main(int argc, char *argv[])
   std::cout << "[INFO]: FINISHED PROCESSING\n"
             << std::endl;
 
-  std::fstream f("channels.txt", std::fstream::out);
+  // std::fstream f("channels.txt", std::fstream::out);
 
-  for (std::size_t i = 0; i < 10; i++)
+  for (std::size_t i = 0; i < 50; i++)
   {
     auto sos_vect = data.speeds_of_sound[i];
     auto depth_vect = data.depths[i];
-    auto index = find_SOFAR_channel(sos_vect);
-    f << "At " << data.lats[i] << ":" << data.longs[i] << " at " << data.dates[i];
-    f << ", the SOFAR minimum is " << depth_vect[index] << "m under the surface"
-      << std::endl;
+    // auto index = find_SOFAR_channel(sos_vect);
+    // f << "At " << data.lats[i] << ":" << data.longs[i] << " at " << data.dates[i];
+    // f << ", the SOFAR minimum is " << depth_vect[index] << "m under the surface"
+    //   << std::endl;
 
-    auto vect = low_pass_filter(sos_vect);
-    depth_vect.resize(vect.size());
+    std::vector<double> doublevect(sos_vect.begin(), sos_vect.end());
+
+    Chisquared fcn(std::vector<double> (depth_vect.begin(), depth_vect.end()), doublevect);
+    ROOT::Minuit2::MnUserParameters upar;
+    //upar.Add("x", (double) 500, 1);
+    upar.Add("y", (double) doublevect[0], 1);
+    upar.Add("m_1", 0, 1);
+    upar.Add("m_2", 0, 1);
+
+    ROOT::Minuit2::MnMigrad migrad(fcn, upar);
+    ROOT::Minuit2::FunctionMinimum min = migrad();
+
+    std::vector<double> fitted_to_params = fcn.fitted_to_minimisation(min);
 
     Gnuplot gp;
+    gp << "set terminal postscript enhanced eps color size 8,3\n"
+          "set output 'images/" << data.platforms[i] << ".eps'\n";
     gp << "set multiplot layout 2,1\n"
        << "set key off\n";
-    grapher::plot_lines(gp, depth_vect, vect, sos_vect);
+    grapher::plot_lines(gp, depth_vect, doublevect, sos_vect, fitted_to_params);
     grapher::plot_lines(gp, moving_average(depth_vect), moving_average(sos_vect));
   }
-  f.close();
+  //f.close();
   return 0;
 }
