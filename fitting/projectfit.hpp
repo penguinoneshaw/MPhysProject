@@ -3,8 +3,8 @@
 #define PROJECT_FIT_H
 #include <vector>
 #include <cstddef>
-#include "root/Minuit2/FCNBase.h"
-#include "root/Minuit2/FunctionMinimum.h"
+#include "Minuit2/FCNBase.h"
+#include "Minuit2/FunctionMinimum.h"
 
 
 

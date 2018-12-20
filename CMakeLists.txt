@@ -5,6 +5,7 @@ add_compile_options(-Wextra -Wnon-virtual-dtor -pedantic)
 
 find_package(OpenMP REQUIRED)
 find_package(Boost REQUIRED COMPONENTS iostreams system filesystem)
+find_package(Minuit2)
 
 include(CTest)
 enable_testing()
@@ -12,7 +13,6 @@ enable_testing()
 add_executable(ProjectModelling main.cpp)
 add_subdirectory(fitting)
 add_subdirectory(grapher)
-find_package(ROOT REQUIRED COMPONENTS Minuit2)
 
 
 set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD 14)
@@ -29,4 +29,4 @@ set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
 target_link_libraries(ProjectModelling PUBLIC ProjectFit)
-target_link_libraries(ProjectModelling PRIVATE netcdf-cxx4 netcdf OpenMP::OpenMP_CXX ${Boost_LIBRARIES} ROOT::Minuit2)
+target_link_libraries(ProjectModelling PRIVATE netcdf-cxx4 netcdf OpenMP::OpenMP_CXX ${Boost_LIBRARIES} Minuit2::Minuit2)
