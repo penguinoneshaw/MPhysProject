@@ -49,7 +49,7 @@ std::vector<float> moving_average(const std::vector<float> &vector, const std::s
   return output;
 }
 
-constexpr double bilinear_fit(const std::vector<double> &par, double d) { 
+double bilinear_fit(const std::vector<double> &par, double d) { 
   // This is the fitting function, which I can swap out as necessary
   // Uses a bilinear fit, where the curve is theoretically fitted to two successive lines, which can be generalised.
   // Expects par to be in the format (x, y, m_1, m_2) where [x, y] is the 'position' of the turning point in the depth-speed plain
@@ -63,7 +63,7 @@ constexpr double bilinear_fit(const std::vector<double> &par, double d) {
   return r;
 }
 
-constexpr double polynomial_fit(const std::vector<double> &par, double d) { 
+double polynomial_fit(const std::vector<double> &par, double d) { 
   // This is the fitting function, which I can swap out as necessary
   // Uses a cubic fitting function (originally was planned to be quadratic but this way it has the same number of coefficients as the bilinear).
   // Expects par to be in the format (c_i) for i in [0, 3] is the 'position' of the turning point in the depth-speed plain
@@ -92,4 +92,4 @@ std::vector<double> Chisquared::fitted_to_minimisation(ROOT::Minuit2::FunctionMi
     return polynomial_fit(par, d);
   });
   return result;
-};
+}

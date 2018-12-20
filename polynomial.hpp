@@ -8,7 +8,7 @@
 namespace poly
 {
   template <class T>
-constexpr T horners_method(const std::vector<T> &coefficients, const T &x_0)
+const T horners_method(const std::vector<T> &coefficients, const T &x_0)
 {
   // Evaluates polynomials defined with coefficients vector little endian (i.e.
   // a_0 + x*a_1 + ...)
@@ -23,7 +23,7 @@ constexpr T horners_method(const std::vector<T> &coefficients, const T &x_0)
 }
 
 template <class T>
-constexpr T horner2D(const std::vector<std::vector<T>> &coefficients, const T &x_0, const T &y_0)
+const T horner2D(const std::vector<std::vector<T>> &coefficients, const T &x_0, const T &y_0)
 {
   std::vector<T> result(coefficients.size(), 0);
   std::transform(coefficients.begin(), coefficients.end(), result.begin(),
