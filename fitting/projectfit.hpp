@@ -6,6 +6,7 @@
 #include "Minuit2/FCNBase.h"
 #include "Minuit2/FunctionMinimum.h"
 
+
 std::vector<float> low_pass_filter(const std::vector<float> &vector, const std::size_t cutoff = 15);
 std::vector<float> moving_average(const std::vector<float> &vector, const std::size_t period = 10);
 
