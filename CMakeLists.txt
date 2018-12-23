@@ -14,7 +14,6 @@ add_executable(ProjectModelling main.cpp)
 add_subdirectory(fitting)
 add_subdirectory(grapher)
 
-
 set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD 14)
 set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
