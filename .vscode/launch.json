@@ -13,8 +13,8 @@
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
-      "externalConsole": true,
-      "MIMode": "lldb"
+      "externalConsole": false,
+      "MIMode": "gdb"
     }
   ]
 }

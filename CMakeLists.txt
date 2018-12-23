@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4.0)
+cmake_minimum_required(VERSION 3.12)
 project(ProjectModelling VERSION 0.1.0)
 
 add_compile_options(-Wextra -Wnon-virtual-dtor -pedantic)
@@ -16,9 +16,9 @@ add_subdirectory(fitting)
 add_subdirectory(grapher)
 
 
-set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD 14)
+set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD 17)
 set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD_REQUIRED ON)
-target_compile_features(ProjectModelling PRIVATE cxx_variable_templates)
+target_compile_features(ProjectModelling PRIVATE cxx_variable_templates cxx_lambdas cxx_lambda_init_captures )
 
 if(HOME)
 target_include_directories(ProjectModelling PRIVATE "${HOME}/include")

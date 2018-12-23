@@ -6,6 +6,45 @@
 #include <numeric>
 #include "polynomial.hpp"
 
+std::size_t find_SOFAR_channel(const std::vector<float> &speed_of_sound) {
+  std::vector<std::vector<float>::const_iterator> minima;
+  std::vector<std::vector<float>::const_iterator> maxima;
+  std::vector<std::vector<float>::const_iterator> stationary;
+
+  auto end = std::end(speed_of_sound);
+  auto begin = 1 + std::begin(speed_of_sound);
+
+  float minimum = std::numeric_limits<float>::max();
+  std::vector<float_t>::const_iterator min_pos = std::end(speed_of_sound);
+
+  for (; begin != end - 1; begin++) {
+    if (*begin < *(begin - 1) && *begin < *(begin + 1)) {
+      for (auto backtracker = begin; backtracker != std::begin(speed_of_sound);
+           --backtracker) {
+        if (*backtracker > *begin + 5) {
+          for (auto tracker = begin; tracker != end; tracker++) {
+            if (*tracker > *begin + 5) {
+              minima.push_back(begin);
+              if (minimum > *begin) {
+                min_pos = begin;
+                minimum = *begin;
+              }
+              break;
+            }
+          }
+
+          break;
+        }
+      }
+    } else if (*begin > *(begin - 1) && *begin > *(begin + 1)) {
+      maxima.push_back(begin);
+    } else if (std::abs(*begin - *(begin - 1)) < 1e-4) {
+      stationary.push_back(begin);
+    }
+  }
+
+  return std::distance(std::begin(speed_of_sound), min_pos);
+}
 std::vector<float> low_pass_filter(const std::vector<float> &vector, const std::size_t cutoff)
 {
   std::vector<float> in(vector);

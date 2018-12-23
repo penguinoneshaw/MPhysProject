@@ -1,5 +1,4 @@
 {
-  "C_Cpp.default.configurationProvider": "vector-of-bool.cmake-tools",
   "files.associations": {
     "__config": "cpp",
     "__nullptr": "cpp",
@@ -57,7 +56,9 @@
     "tuple": "cpp",
     "utility": "cpp",
     "valarray": "cpp",
-    "string": "cpp"
+    "string": "cpp",
+    "strstream": "cpp",
+    "bitset": "cpp"
   },
   "C_Cpp.configurationWarnings": "Disabled",
   "spellright.language": [

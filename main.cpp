@@ -1,84 +1,36 @@
 #include <algorithm>
 
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
-#include <netcdf>
-#include <vector>
-#include <array>
-#include <numeric>
 #include <mutex>
+#include <netcdf>
+#include <numeric>
+#include <vector>
 
 #include "Minuit2/FunctionMinimum.h"
 #include "Minuit2/MnMigrad.h"
 #include "Minuit2/MnPrint.h"
 #include "Minuit2/MnUserParameters.h"
 
-#include "fitting/projectfit.hpp"
 #include "boost/filesystem.hpp"
+#include "fitting/projectfit.hpp"
 
 #include "grapher.hpp"
 #include "speed_of_sound.hpp"
+#include "oQTM/oQTM.hpp"
 
 namespace fs = boost::filesystem;
 
-std::size_t find_SOFAR_channel(const std::vector<float> &speed_of_sound)
-{
-  std::vector<std::vector<float>::const_iterator> minima;
-  std::vector<std::vector<float>::const_iterator> maxima;
-  std::vector<std::vector<float>::const_iterator> stationary;
 
-  auto end = std::end(speed_of_sound);
-  auto begin = 1 + std::begin(speed_of_sound);
-
-  float minimum = std::numeric_limits<float>::max();
-  std::vector<float_t>::const_iterator min_pos = std::end(speed_of_sound);
-
-  for (; begin != end - 1; begin++)
-  {
-    if (*begin < *(begin - 1) && *begin < *(begin + 1))
-    {
-      for (auto backtracker = begin; backtracker != std::begin(speed_of_sound); --backtracker)
-      {
-        if (*backtracker > *begin + 5)
-        {
-          for (auto tracker = begin; tracker != end; tracker++)
-          {
-            if (*tracker > *begin + 5)
-            {
-              minima.push_back(begin);
-              if (minimum > *begin)
-              {
-                min_pos = begin;
-                minimum = *begin;
-              }
-              break;
-            }
-          }
-
-          break;
-        }
-      }
-    }
-    else if (*begin > *(begin - 1) && *begin > *(begin + 1))
-    {
-      maxima.push_back(begin);
-    }
-    else if (std::abs(*begin - *(begin - 1)) < 1e-4)
-    {
-      stationary.push_back(begin);
-    }
-  }
-
-  return std::distance(std::begin(speed_of_sound), min_pos);
-}
 
 typedef std::vector<float> argodata_t;
 typedef std::vector<argodata_t> argotable_t;
 
-struct argodata_struct
-{
+struct argodata_struct {
+  std::size_t N_PROF;
   argotable_t depths;
   argotable_t speeds_of_sound;
   argodata_t lats;
@@ -87,26 +39,25 @@ struct argodata_struct
   std::vector<std::string> platforms;
 };
 
-const argodata_struct read_file_data(fs::path filepath)
-{
+const argodata_struct read_file_data(fs::path filepath) {
   using namespace netCDF;
   NcFile datafile(filepath.string(), NcFile::read);
 
   static const std::size_t N_PROF = datafile.getDim("N_PROF").getSize();
   static const std::size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
 
-  argodata_struct data{
-      argotable_t(),
-      argotable_t(),
-      argodata_t(N_PROF),
-      argodata_t(N_PROF),
-      argodata_t(N_PROF),
-      std::vector<std::string>()
-      };
+  argodata_struct data{0, argotable_t(),      argotable_t(),
+                       argodata_t(N_PROF), argodata_t(N_PROF),
+                       argodata_t(N_PROF), std::vector<std::string>()};
 
   data.depths.reserve(N_PROF);
   data.speeds_of_sound.reserve(N_PROF);
   data.platforms.reserve(N_PROF);
+  
+  argodata_t lats(N_PROF);
+  argodata_t longs(N_PROF);
+  argodata_t dates(N_PROF);
+  std::vector<std::string> platforms;
 
   NcVar latsVar, longsVar, dateVar, platformVar;
   latsVar = datafile.getVar("LATITUDE");
@@ -117,12 +68,12 @@ const argodata_struct read_file_data(fs::path filepath)
   std::vector<std::array<char, 8>> names(N_PROF);
   platformVar.getVar(names.data());
 
-  for (auto name: names)
-    {
-      auto strnm = std::string(name.begin(), name.end());
-      std::string::iterator end_pos = std::remove(strnm.begin(), strnm.end(), ' ');
-      data.platforms.push_back(std::string(strnm.begin(), end_pos));
-    }
+  for (auto name : names) {
+    auto strnm = std::string(name.begin(), name.end());
+    std::string::iterator end_pos =
+        std::remove(strnm.begin(), strnm.end(), ' ');
+    platforms.push_back(std::string(strnm.begin(), end_pos));
+  }
 
   NcVar tempVar, depthVar, salinityVar;
   tempVar = datafile.getVar("TEMP");
@@ -132,14 +83,13 @@ const argodata_struct read_file_data(fs::path filepath)
   if (tempVar.isNull() || depthVar.isNull() || salinityVar.isNull())
     exit(1);
 
-  latsVar.getVar(data.lats.data());
-  longsVar.getVar(data.longs.data());
-  dateVar.getVar(data.dates.data());
+  latsVar.getVar(lats.data());
+  longsVar.getVar(longs.data());
+  dateVar.getVar(dates.data());
 
   std::mutex data_mutex;
 
-  for (std::size_t j = 0; j < N_PROF; j++)
-  {
+  for (std::size_t j = 0; j < N_PROF; j++) {
     auto tempIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
     auto salIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
     auto depthIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
@@ -153,35 +103,41 @@ const argodata_struct read_file_data(fs::path filepath)
     tempVar.getVar(start, count, tempIn.data());
     depthVar.getVar(start, count, depthIn.data());
 
-  #pragma omp parallel for
-    for (std::size_t i = 0; i < N_LEVELS; i++)
-    {
-      if (tempIn[i] != 99999 && salIn[i] != 99999 && depthIn[i] != 99999)
-      {
+#pragma omp parallel for
+    for (std::size_t i = 0; i < N_LEVELS; i++) {
+      if (tempIn[i] != 99999 && salIn[i] != 99999 && depthIn[i] != 99999) {
         speed_of_sound_vec[i] = speed_of_sound::speed_of_sound(
-            speed_of_sound::pressure_at_depth(depthIn[i], data.lats[j]), tempIn[i],
-            salIn[i]);
-      }
-      else
-      {
+            speed_of_sound::pressure_at_depth(depthIn[i], data.lats[j]),
+            tempIn[i], salIn[i]);
+      } else {
         tempIn[i] = std::nan("nodata");
         salIn[i] = std::nan("nodata");
         depthIn[i] = std::nan("nodata");
       }
     }
-    {
 
+    {
       auto it = std::begin(speed_of_sound_vec);
-      for (; it != std::end(speed_of_sound_vec); ++it)
-      {
+      for (; it != std::end(speed_of_sound_vec); ++it) {
         if (std::isnan(*it))
           break;
       }
-      auto size = std::abs(std::distance(std::begin(speed_of_sound_vec), it));
+      auto size =
+          (long unsigned int)std::distance(std::begin(speed_of_sound_vec), it);
+
+      if (size == 0) {
+        continue;
+      }
       speed_of_sound_vec.resize(size);
       depthIn.resize(size);
       {
         std::lock_guard<std::mutex> guard(data_mutex);
+        data.lats.push_back(lats[j]);
+        data.longs.push_back(longs[j]);
+        data.dates.push_back(dates[j]);
+        data.platforms.push_back(platforms[j]);
+        data.N_PROF++;
+
         data.depths.push_back(depthIn);
         data.speeds_of_sound.push_back(speed_of_sound_vec);
       }
@@ -190,13 +146,11 @@ const argodata_struct read_file_data(fs::path filepath)
   return std::move(data);
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 
   std::cout << "ARGO (Met Office Hadley Centre) Data" << std::endl;
 
-  if (argc == 1)
-  {
+  if (argc == 1) {
     std::cout << "Please pass a filename to the programme" << std::endl;
     return 1;
   }
@@ -205,26 +159,19 @@ int main(int argc, char *argv[])
 
   auto data = read_file_data(argument);
 
-  std::cout << "[INFO]: FINISHED PROCESSING\n"
-            << std::endl;
-
-  // std::fstream f("channels.txt", std::fstream::out);
-
-  for (std::size_t i = 0; i < 50; i++)
-  {
+  std::cout << "[INFO]: FINISHED PROCESSING\n" << std::endl;
+  #pragma omp parallel for
+  for (std::size_t i = 0; i < data.N_PROF; i++) {
     auto sos_vect = data.speeds_of_sound[i];
     auto depth_vect = data.depths[i];
-    // auto index = find_SOFAR_channel(sos_vect);
-    // f << "At " << data.lats[i] << ":" << data.longs[i] << " at " << data.dates[i];
-    // f << ", the SOFAR minimum is " << depth_vect[index] << "m under the surface"
-    //   << std::endl;
 
     std::vector<double> doublevect(sos_vect.begin(), sos_vect.end());
 
-    Chisquared fcn(std::vector<double> (depth_vect.begin(), depth_vect.end()), doublevect);
+    Chisquared fcn(std::vector<double>(depth_vect.begin(), depth_vect.end()),
+                   doublevect);
     ROOT::Minuit2::MnUserParameters upar;
-    //upar.Add("x", (double) 500, 1);
-    upar.Add("y", (double) doublevect[0], 1);
+    // upar.Add("x", (double) 500, 1);
+    upar.Add("y", (double)doublevect[0], 1);
     upar.Add("m_1", 0, 1);
     upar.Add("m_2", 0, 1);
 
@@ -232,15 +179,16 @@ int main(int argc, char *argv[])
     ROOT::Minuit2::FunctionMinimum min = migrad();
 
     std::vector<double> fitted_to_params = fcn.fitted_to_minimisation(min);
-
+    std::string filename = "images/" + data.platforms[i] + ".eps";
     Gnuplot gp;
     gp << "set terminal postscript enhanced eps color size 8,3\n"
-          "set output 'images/" << data.platforms[i] << ".eps'\n";
+          "set output '"
+       << filename << "'\n";
     gp << "set multiplot layout 2,1\n"
        << "set key off\n";
     grapher::plot_lines(gp, depth_vect, doublevect, sos_vect, fitted_to_params);
-    grapher::plot_lines(gp, moving_average(depth_vect), moving_average(sos_vect));
+    grapher::plot_lines(gp, moving_average(depth_vect),
+                        moving_average(sos_vect));
   }
-  //f.close();
   return 0;
 }
