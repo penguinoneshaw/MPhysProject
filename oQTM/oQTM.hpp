@@ -7,6 +7,14 @@
 #include <cmath>
 #include <tuple>
 #include <memory>
+#include <stdexcept>
+
+  class BeyondTreeDepthError : public std::logic_error
+  {
+  public:
+    BeyondTreeDepthError(): std::logic_error("Attempting to access level of tree beyond that in template type."){
+    }
+  } beyondTreeError;
 
 template <typename T, std::size_t N_LEVELS>
 class oQTM_Quadrant
@@ -14,12 +22,6 @@ class oQTM_Quadrant
 private:
   typedef oQTM_Quadrant<T, N_LEVELS> subtree;
   typedef std::unique_ptr<subtree> subtree_ptr;
-
-  class BeyondTreeDepthError : public std::exception
-  {
-  public:
-    virtual char const *what() const noexcept { return "Attempting to access level of tree beyond that in template type."; }
-  } beyondTreeError;
 
   std::array<subtree_ptr, 4> subtrees;
   std::map<T, T> data;
@@ -32,13 +34,25 @@ public:
   ~oQTM_Quadrant(){};
   subtree &operator[](std::size_t i)
   {
-    if (depth == N_LEVELS) {
+    if (depth >= N_LEVELS) {
       throw beyondTreeError;
     }
+
     if (!subtrees[i])
       subtrees[i] = std::make_unique<subtree>(depth + 1);
     return *subtrees[i];
   }
+
+  const std::map<T,T> &get_points(std::vector<size_t>::iterator begin, const std::vector<size_t>::const_iterator &end) const {
+    if (begin == end) {
+      std::map<T, T> combined_map;
+      return data;
+    } else {
+    return this[*begin].get_points(begin + 1, end);
+    }
+  }
+
+
 };
 
 template <typename T, std::size_t N_LEVELS>
@@ -58,6 +72,12 @@ public:
     if (!quadrants[i])
       quadrants[i] = std::make_unique<octant>();
     return *quadrants[i];
+  }
+
+  const std::map<T,T> &get_points(std::vector<size_t> location) const {
+    if (location.size() > N_LEVELS) throw beyondTreeError;
+    auto begin = location.begin();
+    return this[*begin].get_points(begin + 1, location.end());
   }
 
   static std::tuple<uint8_t, uint8_t, T> nextlevel(const T &_x, const T &_y)
