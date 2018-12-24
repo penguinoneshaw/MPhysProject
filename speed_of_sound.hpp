@@ -59,7 +59,7 @@ const T speed_of_sound(const T &p, const T &t, const T &s)
 template <typename T>
 std::size_t find_SOFAR_channel(const std::vector<T> &speed_of_sound)
 {
-  typedef std::vector<T>::const_iterator extremum;
+  typedef typename std::vector<T>::const_iterator extremum;
   typedef std::vector<extremum> extrema_positions;
   extrema_positions minima;
   extrema_positions maxima;
@@ -69,7 +69,7 @@ std::size_t find_SOFAR_channel(const std::vector<T> &speed_of_sound)
   auto begin = 1 + std::begin(speed_of_sound);
 
   T minimum = std::numeric_limits<T>::max();
-  std::vector<T>::const_iterator min_pos = std::end(speed_of_sound);
+  extremum min_pos = std::end(speed_of_sound);
 
   for (; begin != end - 1; begin++)
   {

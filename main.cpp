@@ -19,12 +19,10 @@
 #include "fitting/projectfit.hpp"
 
 #include "grapher.hpp"
-#include "speed_of_sound.hpp"
 #include "oQTM/oQTM.hpp"
+#include "speed_of_sound.hpp"
 
 namespace fs = boost::filesystem;
-
-
 
 typedef std::vector<float> argodata_t;
 typedef std::vector<argodata_t> argotable_t;
@@ -46,14 +44,18 @@ const argodata_struct read_file_data(fs::path filepath) {
   static const std::size_t N_PROF = datafile.getDim("N_PROF").getSize();
   static const std::size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
 
-  argodata_struct data{0, argotable_t(),      argotable_t(),
-                       argodata_t(N_PROF), argodata_t(N_PROF),
-                       argodata_t(N_PROF), std::vector<std::string>()};
+  argodata_struct data{0,
+                       argotable_t(),
+                       argotable_t(),
+                       argodata_t(N_PROF),
+                       argodata_t(N_PROF),
+                       argodata_t(N_PROF),
+                       std::vector<std::string>()};
 
   data.depths.reserve(N_PROF);
   data.speeds_of_sound.reserve(N_PROF);
   data.platforms.reserve(N_PROF);
-  
+
   argodata_t lats(N_PROF);
   argodata_t longs(N_PROF);
   argodata_t dates(N_PROF);
@@ -103,7 +105,7 @@ const argodata_struct read_file_data(fs::path filepath) {
     tempVar.getVar(start, count, tempIn.data());
     depthVar.getVar(start, count, depthIn.data());
 
-#pragma omp parallel for
+    #pragma omp parallel for
     for (std::size_t i = 0; i < N_LEVELS; i++) {
       if (tempIn[i] != 99999 && salIn[i] != 99999 && depthIn[i] != 99999) {
         speed_of_sound_vec[i] = speed_of_sound::speed_of_sound(
@@ -146,7 +148,7 @@ const argodata_struct read_file_data(fs::path filepath) {
   return std::move(data);
 }
 
-int main(int argc, char *argv[]) {
+int other_main(int argc, char *argv[]) {
 
   std::cout << "ARGO (Met Office Hadley Centre) Data" << std::endl;
 
@@ -160,7 +162,7 @@ int main(int argc, char *argv[]) {
   auto data = read_file_data(argument);
 
   std::cout << "[INFO]: FINISHED PROCESSING\n" << std::endl;
-  #pragma omp parallel for
+#pragma omp parallel for
   for (std::size_t i = 0; i < data.N_PROF; i++) {
     auto sos_vect = data.speeds_of_sound[i];
     auto depth_vect = data.depths[i];
@@ -191,4 +193,9 @@ int main(int argc, char *argv[]) {
                         moving_average(sos_vect));
   }
   return 0;
+}
+
+int main(int argc, char *argv[]){
+  oQTM_Mesh<float_t, 30> globemesh;
+  globemesh[0][0][0];
 }
