@@ -9,78 +9,122 @@
 #include <memory>
 #include <stdexcept>
 
-  class BeyondTreeDepthError : public std::logic_error
+class BeyondTreeDepthError : public std::logic_error
+{
+public:
+  BeyondTreeDepthError() : std::logic_error("Attempting to access level of tree beyond that in template type.")
   {
-  public:
-    BeyondTreeDepthError(): std::logic_error("Attempting to access level of tree beyond that in template type."){
-    }
-  } beyondTreeError;
+  }
+} beyondTreeError;
 
 template <typename T, std::size_t N_LEVELS>
 class oQTM_Quadrant
 {
 private:
   typedef oQTM_Quadrant<T, N_LEVELS> subtree;
-  typedef std::unique_ptr<subtree> subtree_ptr;
+  typedef std::shared_ptr<subtree> subtree_ptr;
 
   std::array<subtree_ptr, 4> subtrees;
   std::map<T, T> data;
   std::size_t depth;
 
 public:
-  oQTM_Quadrant(std::size_t _depth = 1): depth{_depth} {
-
-  };
+  oQTM_Quadrant(std::size_t _depth = 1) : depth{_depth} {};
   ~oQTM_Quadrant(){};
-  subtree &operator[](std::size_t i)
+
+  void add_to_data(T key, T value) {
+    data.insert(std::pair(key, value));
+  }
+
+  const std::map<T, T> get_data()
   {
-    if (depth >= N_LEVELS) {
+    if (depth == N_LEVELS)
+    {
+      return data;
+    }
+    else
+    {
+      std::map<T, T> combined_map;
+      for (auto &subtree : subtrees)
+      {
+        if (subtree)
+        {
+          auto st = subtree->get_data();
+          combined_map.insert(st.begin(), st.end());
+        }
+      }
+      return combined_map;
+    }
+  }
+
+  std::shared_ptr<subtree> operator[](std::size_t i)
+  {
+    if (depth >= N_LEVELS)
+    {
       throw beyondTreeError;
     }
 
     if (!subtrees[i])
-      subtrees[i] = std::make_unique<subtree>(depth + 1);
-    return *subtrees[i];
+      subtrees[i] = std::make_shared<subtree>(depth + 1);
+    return subtrees[i];
   }
 
-  const std::map<T,T> &get_points(std::vector<size_t>::iterator begin, const std::vector<size_t>::const_iterator &end) const {
-    if (begin == end) {
-      std::map<T, T> combined_map;
-      return data;
-    } else {
-    return this[*begin].get_points(begin + 1, end);
+  std::map<T, T> get_points(const std::vector<size_t>::iterator begin, const std::vector<size_t>::const_iterator &end)
+  {
+    if (begin == end)
+    {
+      return this->get_data();
+    }
+    else
+    {
+      return this->operator[](*begin)->get_points(begin + 1, end);
     }
   }
-
-
 };
 
 template <typename T, std::size_t N_LEVELS>
 class oQTM_Mesh
 {
-private:
+  private:
   typedef oQTM_Quadrant<T, N_LEVELS> octant;
-  typedef std::unique_ptr<octant> quad_ptr;
+  typedef std::shared_ptr<octant> quad_ptr;
   std::array<quad_ptr, 8> quadrants;
 
-public:
+  public:
   oQTM_Mesh(){};
   ~oQTM_Mesh(){};
+  typedef std::array<uint8_t, N_LEVELS> location_t;
 
-  octant &operator[](std::size_t i)
+  std::shared_ptr<octant> operator[](std::size_t i)
   {
     if (!quadrants[i])
-      quadrants[i] = std::make_unique<octant>();
-    return *quadrants[i];
+      quadrants[i] = std::make_shared<octant>();
+    return quadrants[i];
   }
 
-  const std::map<T,T> &get_points(std::vector<size_t> location) const {
-    if (location.size() > N_LEVELS) throw beyondTreeError;
+  void insert(location_t location, T key, T value){
+    std::shared_ptr<octant> quad = operator[](location[0]);
+    for (auto it = location.begin() + 1; it!=location.end(); it++){
+      quad = (*quad)[*it];
+    }
+    quad->add_to_data(key, value);
+  }
+
+  const location_t insert(T lon, T lat, T key, T value){
+    location_t location = location(lon, lat);
+    this->insert(location);
+    return location;
+  }
+
+  std::map<T, T> get_points(std::vector<size_t> location)
+  {
+    if (location.size() > N_LEVELS)
+      throw beyondTreeError;
     auto begin = location.begin();
-    return this[*begin].get_points(begin + 1, location.end());
+    return operator[](*begin)->get_points(begin + 1, location.end());
   }
 
-  static std::tuple<uint8_t, uint8_t, T> nextlevel(const T &_x, const T &_y)
+  static inline std::tuple<T, T, uint8_t> nextlevel(const T &_x, const T &_y)
   {
     T x, y;
     uint8_t quadrant;
@@ -113,8 +157,8 @@ public:
     return std::tie(x, y, quadrant);
   };
 
-  const std::tuple<uint8_t, std::array<uint8_t, N_LEVELS>>
-  location(float_t lat, float_t lon) const
+  const std::tuple<uint8_t, location_t>
+  location(T lon, T lat) const
   {
     uint8_t octant;
     std::array<uint8_t, N_LEVELS> location;

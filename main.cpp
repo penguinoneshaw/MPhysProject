@@ -105,7 +105,7 @@ const argodata_struct read_file_data(fs::path filepath) {
     tempVar.getVar(start, count, tempIn.data());
     depthVar.getVar(start, count, depthIn.data());
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (std::size_t i = 0; i < N_LEVELS; i++) {
       if (tempIn[i] != 99999 && salIn[i] != 99999 && depthIn[i] != 99999) {
         speed_of_sound_vec[i] = speed_of_sound::speed_of_sound(
@@ -195,7 +195,25 @@ int other_main(int argc, char *argv[]) {
   return 0;
 }
 
-int main(int argc, char *argv[]){
-  oQTM_Mesh<float_t, 30> globemesh;
-  globemesh[0][0][0];
+int main(int argc, char *argv[]) {
+  if (argc == 1) {
+    std::cout << "Please pass a filename to the programme" << std::endl;
+    return 1;
+  }
+
+  fs::path argument(argv[1]);
+
+  auto data = read_file_data(argument);
+
+  oQTM_Mesh<float_t, 3> globemesh;
+  oQTM_Mesh<float_t, 3>::location_t l{0, 0, 0};
+  oQTM_Mesh<float_t, 3>::location_t l_1{0, 0, 3};
+
+  globemesh.insert(l, 0.15, 2.0);
+  globemesh.insert(l_1, 45, 3.0);
+
+  auto a = globemesh.get_points(std::vector<size_t>{0, 0, 0});
+  for (auto i : a) {
+    std::cout << i.first << " " << i.second << std::endl;
+  }
 }
