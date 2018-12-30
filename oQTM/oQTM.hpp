@@ -82,11 +82,11 @@ public:
   }
 };
 
-template <typename T, std::size_t N_LEVELS>
+template <typename T, typename K, typename V, std::size_t N_LEVELS>
 class oQTM_Mesh
 {
   private:
-  typedef oQTM_Quadrant<T, T, N_LEVELS> octant;
+  typedef oQTM_Quadrant<K, V, N_LEVELS> octant;
   typedef std::shared_ptr<octant> quad_ptr;
   std::array<quad_ptr, 8> quadrants;
 
@@ -102,7 +102,7 @@ class oQTM_Mesh
     return quadrants[i];
   }
 
-  void insert(location_t location, T key, T value){
+  void insert(location_t location, K key, V value){
     std::shared_ptr<octant> quad = operator[](location[0]);
     for (auto it = location.begin() + 1; it!=location.end(); it++){
       quad = (*quad)[*it];
@@ -110,13 +110,13 @@ class oQTM_Mesh
     quad->add_to_data(key, value);
   }
 
-  const location_t insert(T lon, T lat, T key, T value){
+  const location_t insert(T lon, T lat, K key, V value){
     location_t location = location(lon, lat);
     this->insert(location, key, value);
     return location;
   }
 
-  std::multimap<T, T> get_points(std::vector<size_t> location)
+  std::multimap<K, V> get_points(std::vector<size_t> location)
   {
     if (location.size() > N_LEVELS)
       throw beyondTreeError;

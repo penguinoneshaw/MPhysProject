@@ -89,8 +89,6 @@ const argodata_struct read_file_data(fs::path filepath) {
   longsVar.getVar(longs.data());
   dateVar.getVar(dates.data());
 
-  std::mutex data_mutex;
-
   for (std::size_t j = 0; j < N_PROF; j++) {
     auto tempIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
     auto salIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
@@ -105,7 +103,7 @@ const argodata_struct read_file_data(fs::path filepath) {
     tempVar.getVar(start, count, tempIn.data());
     depthVar.getVar(start, count, depthIn.data());
 
-#pragma omp parallel for
+    #pragma omp parallel for
     for (std::size_t i = 0; i < N_LEVELS; i++) {
       if (tempIn[i] != 99999 && salIn[i] != 99999 && depthIn[i] != 99999) {
         speed_of_sound_vec[i] = speed_of_sound::speed_of_sound(
@@ -132,8 +130,8 @@ const argodata_struct read_file_data(fs::path filepath) {
       }
       speed_of_sound_vec.resize(size);
       depthIn.resize(size);
+      #pragma omp critical
       {
-        std::lock_guard<std::mutex> guard(data_mutex);
         data.lats.push_back(lats[j]);
         data.longs.push_back(longs[j]);
         data.dates.push_back(dates[j]);
@@ -204,26 +202,63 @@ void read_to_tree(fs::path filepath, MESH &mesh){
   static const std::size_t N_PROF = datafile.getDim("N_PROF").getSize();
   static const std::size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
 
+  NcVar latsVar, longsVar, dateVar, platformVar, tempVar, depthVar, salinityVar;
+  latsVar = datafile.getVar("LATITUDE");
+  longsVar = datafile.getVar("LONGITUDE");
+  dateVar = datafile.getVar("JULD");
 
+  tempVar = datafile.getVar("TEMP");
+  depthVar = datafile.getVar("DEPH_CORRECTED");
+  salinityVar = datafile.getVar("PSAL_CORRECTED");
+
+  if (tempVar.isNull() || depthVar.isNull() || salinityVar.isNull())
+    exit(1);
+
+  #pragma omp parallel for
+  for (std::size_t i = 0; i < N_PROF; i++){
+    float_t lat, lon, date;
+    std::vector<size_t>index{i};
+    latsVar.getVar(index, &lat);
+    longsVar.getVar(index, &lon);
+    dateVar.getVar(index, &date);
+
+    auto tempIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
+    auto salIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
+    auto depthIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
+    auto speed_of_sound_vec =
+        std::vector<float_t>(N_LEVELS, std::nan("nodata"));
+
+    std::vector<std::size_t> start {i, 0};
+    std::vector<std::size_t> count {1, N_LEVELS};
+
+    salinityVar.getVar(start, count, salIn.data());
+    tempVar.getVar(start, count, tempIn.data());
+    depthVar.getVar(start, count, depthIn.data());
+
+    auto no_value = [](float_t s) {return s == 99999;};
+    
+    auto sal_nan = std::find_if(salIn.begin(), salIn.end(), no_value);
+    auto sal_not_nan = std::find_if_not(salIn.begin(), salIn.end(), no_value);
+    auto temp_nan = std::find_if(tempIn.begin(), tempIn.end(), no_value);
+    auto temp_not_nan = std::find_if_not(tempIn.begin(), tempIn.end(), no_value);
+    auto depth_nan = std::find_if(depthIn.begin(), depthIn.end(), no_value);
+    auto depth_not_nan = std::find_if_not(depthIn.begin(), depthIn.end(), no_value);
+  }
+    
 
 }
 
 int main(int argc, char *argv[]) {
+  typedef oQTM_Mesh<float_t, double_t, double_t, 3> mesh_t;
   if (argc == 1) {
     std::cout << "Please pass a filename to the programme" << std::endl;
     return 1;
   }
 
   fs::path argument(argv[1]);
+  mesh_t globemesh;
 
-  auto data = read_file_data(argument);
-
-  oQTM_Mesh<float_t, 3> globemesh;
-  oQTM_Mesh<float_t, 3>::location_t l{0, 0, 0};
-  oQTM_Mesh<float_t, 3>::location_t l_1{0, 0, 3};
-
-  globemesh.insert(l, 0.15, 2.0);
-  globemesh.insert(l_1, 45, 3.0);
+  read_to_tree(argument, globemesh);
 
   auto a = globemesh.get_points(std::vector<size_t>{0, 0, 0});
   for (auto i : a) {
