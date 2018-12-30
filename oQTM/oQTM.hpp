@@ -17,26 +17,26 @@ public:
   }
 } beyondTreeError;
 
-template <typename T, std::size_t N_LEVELS>
+template <typename K, typename V, std::size_t N_LEVELS>
 class oQTM_Quadrant
 {
 private:
-  typedef oQTM_Quadrant<T, N_LEVELS> subtree;
+  typedef oQTM_Quadrant<K, V, N_LEVELS> subtree;
   typedef std::shared_ptr<subtree> subtree_ptr;
 
   std::array<subtree_ptr, 4> subtrees;
-  std::map<T, T> data;
+  std::multimap<K, V> data;
   std::size_t depth;
 
 public:
   oQTM_Quadrant(std::size_t _depth = 1) : depth{_depth} {};
   ~oQTM_Quadrant(){};
 
-  void add_to_data(T key, T value) {
+  void add_to_data(K key, V value) {
     data.insert(std::pair(key, value));
   }
 
-  const std::map<T, T> get_data()
+  const std::multimap<K, V> get_data()
   {
     if (depth == N_LEVELS)
     {
@@ -44,7 +44,7 @@ public:
     }
     else
     {
-      std::map<T, T> combined_map;
+      std::multimap<K, V> combined_map;
       for (auto &subtree : subtrees)
       {
         if (subtree)
@@ -69,7 +69,7 @@ public:
     return subtrees[i];
   }
 
-  std::map<T, T> get_points(const std::vector<size_t>::iterator begin, const std::vector<size_t>::const_iterator &end)
+  std::multimap<K, V> get_points(const std::vector<size_t>::iterator begin, const std::vector<size_t>::const_iterator &end)
   {
     if (begin == end)
     {
@@ -86,7 +86,7 @@ template <typename T, std::size_t N_LEVELS>
 class oQTM_Mesh
 {
   private:
-  typedef oQTM_Quadrant<T, N_LEVELS> octant;
+  typedef oQTM_Quadrant<T, T, N_LEVELS> octant;
   typedef std::shared_ptr<octant> quad_ptr;
   std::array<quad_ptr, 8> quadrants;
 
@@ -112,11 +112,11 @@ class oQTM_Mesh
 
   const location_t insert(T lon, T lat, T key, T value){
     location_t location = location(lon, lat);
-    this->insert(location);
+    this->insert(location, key, value);
     return location;
   }
 
-  std::map<T, T> get_points(std::vector<size_t> location)
+  std::multimap<T, T> get_points(std::vector<size_t> location)
   {
     if (location.size() > N_LEVELS)
       throw beyondTreeError;
