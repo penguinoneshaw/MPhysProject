@@ -1,3 +1,6 @@
 [submodule "gnuplot-iostream"]
 	path = gnuplot-iostream
 	url = https://github.com/dstahlke/gnuplot-iostream.git
+[submodule "Minuit2"]
+	path = Minuit2
+	url = https://github.com/GooFit/Minuit2.git

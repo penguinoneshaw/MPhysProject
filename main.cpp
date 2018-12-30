@@ -9,20 +9,20 @@
 #include <netcdf>
 #include <numeric>
 #include <vector>
+#include <filesystem>
 
 #include "Minuit2/FunctionMinimum.h"
 #include "Minuit2/MnMigrad.h"
 #include "Minuit2/MnPrint.h"
 #include "Minuit2/MnUserParameters.h"
 
-#include "boost/filesystem.hpp"
 #include "fitting/projectfit.hpp"
 
 #include "grapher.hpp"
 #include "oQTM/oQTM.hpp"
 #include "speed_of_sound.hpp"
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 typedef std::vector<float> argodata_t;
 typedef std::vector<argodata_t> argotable_t;
@@ -193,6 +193,19 @@ int other_main(int argc, char *argv[]) {
                         moving_average(sos_vect));
   }
   return 0;
+}
+
+template <typename MESH>
+void read_to_tree(fs::path filepath, MESH &mesh){
+  using namespace netCDF;
+
+  NcFile datafile(filepath.string(), NcFile::read);
+
+  static const std::size_t N_PROF = datafile.getDim("N_PROF").getSize();
+  static const std::size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
+
+
+
 }
 
 int main(int argc, char *argv[]) {
