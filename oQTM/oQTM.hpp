@@ -102,19 +102,8 @@ class oQTM_Mesh
     return quadrants[i];
   }
 
-  void insert(location_t location, K key, V value){
-    std::shared_ptr<octant> quad = operator[](location[0]);
-    for (auto it = location.begin() + 1; it!=location.end(); it++){
-      quad = (*quad)[*it];
-    }
-    quad->add_to_data(key, value);
-  }
 
-  const location_t insert(T lon, T lat, K key, V value){
-    location_t location = location(lon, lat);
-    this->insert(location, key, value);
-    return location;
-  }
+
 
   std::multimap<K, V> get_points(std::vector<size_t> location)
   {
@@ -157,7 +146,7 @@ class oQTM_Mesh
     return std::tie(x, y, quadrant);
   };
 
-  const std::tuple<uint8_t, location_t>
+  const location_t
   location(T lon, T lat) const
   {
     uint8_t octant;
@@ -206,7 +195,7 @@ class oQTM_Mesh
     lat = std::abs(lat) / 90;
     lon *= 1 - lat;
 
-    for (std::size_t i = 0; i < N_LEVELS; i++)
+    for (std::size_t i = 1; i < N_LEVELS; i++)
     {
       auto [nlon, nlat, nlocation] = nextlevel(lon, lat);
       lon = nlon;
@@ -214,7 +203,23 @@ class oQTM_Mesh
       location[i] = nlocation;
     }
 
+    location[0] = octant;
+
     return location;
+  }
+
+  const location_t insert(T lon, T lat, K key, V value){
+    auto loc = location(lon, lat);
+    this->insert(loc, key, value);
+    return loc;
+  }
+
+  void insert(location_t location, K key, V value){
+    std::shared_ptr<octant> quad = operator[](location[0]);
+    for (auto it = location.begin() + 1; it != location.end(); it++){
+      quad = (*quad)[*it];
+    }
+    quad->add_to_data(key, value);
   }
 };
 

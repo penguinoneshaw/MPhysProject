@@ -9,7 +9,7 @@
 #include <netcdf>
 #include <numeric>
 #include <vector>
-#include <filesystem>
+#include "boost/filesystem.hpp"
 
 #include "Minuit2/FunctionMinimum.h"
 #include "Minuit2/MnMigrad.h"
@@ -22,7 +22,7 @@
 #include "oQTM/oQTM.hpp"
 #include "speed_of_sound.hpp"
 
-namespace fs = std::filesystem;
+namespace fs = boost::filesystem;
 
 typedef std::vector<float> argodata_t;
 typedef std::vector<argodata_t> argotable_t;
@@ -214,19 +214,23 @@ void read_to_tree(fs::path filepath, MESH &mesh){
   if (tempVar.isNull() || depthVar.isNull() || salinityVar.isNull())
     exit(1);
 
-  #pragma omp parallel for
+  //#pragma omp parallel for
   for (std::size_t i = 0; i < N_PROF; i++){
-    float_t lat, lon, date;
+    double_t lat, lon, date;
     std::vector<size_t>index{i};
     latsVar.getVar(index, &lat);
     longsVar.getVar(index, &lon);
     dateVar.getVar(index, &date);
 
-    auto tempIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
-    auto salIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
-    auto depthIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
-    auto speed_of_sound_vec =
-        std::vector<float_t>(N_LEVELS, std::nan("nodata"));
+    auto tempIn = std::vector<double_t>(N_LEVELS, std::nan("nodata"));
+    auto salIn = std::vector<double_t>(N_LEVELS, std::nan("nodata"));
+    auto depthIn = std::vector<double_t>(N_LEVELS, std::nan("nodata"));
+
+    std::vector<double_t>actual_depths;
+    std::vector<double_t>speed_of_sound_vec;
+
+    actual_depths.reserve(N_LEVELS);
+    speed_of_sound_vec.reserve(N_LEVELS);
 
     std::vector<std::size_t> start {i, 0};
     std::vector<std::size_t> count {1, N_LEVELS};
@@ -235,21 +239,39 @@ void read_to_tree(fs::path filepath, MESH &mesh){
     tempVar.getVar(start, count, tempIn.data());
     depthVar.getVar(start, count, depthIn.data());
 
-    auto no_value = [](float_t s) {return s == 99999;};
+    auto no_value = [](double_t s) {return s == 99999 || std::isnan(s);};
     
-    auto sal_nan = std::find_if(salIn.begin(), salIn.end(), no_value);
-    auto sal_not_nan = std::find_if_not(salIn.begin(), salIn.end(), no_value);
-    auto temp_nan = std::find_if(tempIn.begin(), tempIn.end(), no_value);
-    auto temp_not_nan = std::find_if_not(tempIn.begin(), tempIn.end(), no_value);
-    auto depth_nan = std::find_if(depthIn.begin(), depthIn.end(), no_value);
-    auto depth_not_nan = std::find_if_not(depthIn.begin(), depthIn.end(), no_value);
+    for (std::size_t j = 0; j < N_LEVELS; j++) {
+      if (!no_value(tempIn[j]) && !no_value(salIn[j]) && !no_value(depthIn[j])) {
+        speed_of_sound_vec.push_back(speed_of_sound::speed_of_sound(
+            speed_of_sound::pressure_at_depth(depthIn[j], lat),
+            tempIn[j], salIn[j]));
+        actual_depths.push_back(depthIn[j]);
+      }
+    }
+
+    Chisquared fcn(actual_depths, speed_of_sound_vec);
+    ROOT::Minuit2::MnUserParameters upar;
+    upar.Add("c_0", actual_depths[0], 1);
+    upar.Add("c_1", 0, 1);
+    upar.Add("c_2", 0, 1);
+
+    ROOT::Minuit2::MnMigrad migrad(fcn, upar);
+    ROOT::Minuit2::FunctionMinimum min = migrad();
+
+    auto minCoeff = min.UserParameters().Params();
+    auto xmin = -minCoeff[1]/(2*minCoeff[2]);
+    auto minmax = std::minmax(actual_depths.begin(), actual_depths.end());
+
+    if (xmin < *minmax.first || xmin > *minmax.second || isnan(xmin)) continue;
+    mesh.insert(lon, lat, date, xmin);
   }
     
 
 }
 
 int main(int argc, char *argv[]) {
-  typedef oQTM_Mesh<float_t, double_t, double_t, 3> mesh_t;
+  typedef oQTM_Mesh<double_t, double_t, double_t, 10> mesh_t;
   if (argc == 1) {
     std::cout << "Please pass a filename to the programme" << std::endl;
     return 1;
@@ -260,7 +282,7 @@ int main(int argc, char *argv[]) {
 
   read_to_tree(argument, globemesh);
 
-  auto a = globemesh.get_points(std::vector<size_t>{0, 0, 0});
+  auto a = globemesh.get_points(std::vector<size_t>{0});
   for (auto i : a) {
     std::cout << i.first << " " << i.second << std::endl;
   }

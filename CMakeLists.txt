@@ -15,6 +15,11 @@ add_executable(ProjectModelling main.cpp)
 add_subdirectory(fitting)
 add_subdirectory(grapher)
 
+if (NOT NCDFC)
+    add_subdirectory(netcdf-cxx4)
+    set (NCDFC netcdf-cxx4)
+endif()
+
 
 set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD 17)
 set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD_REQUIRED ON)
