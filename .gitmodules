@@ -4,3 +4,6 @@
 [submodule "Minuit2"]
 	path = Minuit2
 	url = https://github.com/GooFit/Minuit2.git
+[submodule "netcdf-cxx4"]
+	path = netcdf-cxx4
+	url = https://github.com/Unidata/netcdf-cxx4.git
