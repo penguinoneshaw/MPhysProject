@@ -21,7 +21,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/ProjectModelling",
-      "args": ["data/EN.4.2.1.f.profiles.g10.201710.nc"],
+      "args": ["data"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],

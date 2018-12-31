@@ -45,6 +45,7 @@ build/*
 
 # Results
 *.txt
+*.dat
 images/*
 
 .vscode/*

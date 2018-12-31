@@ -15,6 +15,8 @@
 #include "Minuit2/MnMigrad.h"
 #include "Minuit2/MnPrint.h"
 #include "Minuit2/MnUserParameters.h"
+#include "ncException.h"
+
 
 #include "fitting/projectfit.hpp"
 
@@ -194,7 +196,7 @@ int other_main(int argc, char *argv[]) {
 }
 
 template <typename MESH>
-void read_to_tree(fs::path filepath, MESH &mesh){
+void read_to_tree(const fs::path &filepath, MESH &mesh){
   using namespace netCDF;
 
   NcFile datafile(filepath.string(), NcFile::read);
@@ -207,17 +209,17 @@ void read_to_tree(fs::path filepath, MESH &mesh){
   longsVar = datafile.getVar("LONGITUDE");
   dateVar = datafile.getVar("JULD");
 
-  tempVar = datafile.getVar("TEMP");
+  tempVar = datafile.getVar("POTM_CORRECTED");
   depthVar = datafile.getVar("DEPH_CORRECTED");
   salinityVar = datafile.getVar("PSAL_CORRECTED");
 
   if (tempVar.isNull() || depthVar.isNull() || salinityVar.isNull())
     exit(1);
 
-  //#pragma omp parallel for
   for (std::size_t i = 0; i < N_PROF; i++){
     double_t lat, lon, date;
     std::vector<size_t>index{i};
+
     latsVar.getVar(index, &lat);
     longsVar.getVar(index, &lon);
     dateVar.getVar(index, &date);
@@ -264,26 +266,40 @@ void read_to_tree(fs::path filepath, MESH &mesh){
     auto minmax = std::minmax(actual_depths.begin(), actual_depths.end());
 
     if (xmin < *minmax.first || xmin > *minmax.second || isnan(xmin)) continue;
-    mesh.insert(lon, lat, date, xmin);
+    #pragma omp critical 
+    {
+      mesh.insert(lon, lat, date, xmin);
+    }
   }
     
 
 }
 
 int main(int argc, char *argv[]) {
-  typedef oQTM_Mesh<double_t, double_t, double_t, 10> mesh_t;
-  if (argc == 1) {
-    std::cout << "Please pass a filename to the programme" << std::endl;
+  typedef oQTM_Mesh<double_t, double_t, double_t, 5> mesh_t;
+  if (argc == 1 || !fs::is_directory(argv[1])) {
+    std::cout << "Please pass a directory or filename to the programme" << std::endl;
     return 1;
   }
 
-  fs::path argument(argv[1]);
+
   mesh_t globemesh;
 
-  read_to_tree(argument, globemesh);
+  auto loc = globemesh.location(-40.671851, 33.792983);
 
-  auto a = globemesh.get_points(std::vector<size_t>{0});
+  for (const auto &path: fs::directory_iterator(argv[1])) {
+    if (fs::is_regular_file(path) && path.path().extension() == ".nc"){
+      try {
+        read_to_tree(path, globemesh);
+      } catch (const netCDF::exceptions::NcInvalidCoords &e) {
+        std::cerr << path << ": " << e.what() << std::endl;
+        continue;
+      }
+    }
+  }
+
+  auto a = globemesh.get_points(std::vector<size_t>(loc.begin(), loc.begin() + 3));
   for (auto i : a) {
-    std::cout << i.first << " " << i.second << std::endl;
+    std::cout << i.first << "," << i.second << std::endl;
   }
 }
