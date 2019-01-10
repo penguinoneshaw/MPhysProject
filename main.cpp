@@ -5,18 +5,19 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 #include <mutex>
-#include <netcdf>
 #include <numeric>
 #include <vector>
+
 #include "boost/filesystem.hpp"
+#include <netcdf>
 
 #include "Minuit2/FunctionMinimum.h"
 #include "Minuit2/MnMigrad.h"
 #include "Minuit2/MnPrint.h"
 #include "Minuit2/MnUserParameters.h"
 #include "ncException.h"
-
 
 #include "fitting/projectfit.hpp"
 
@@ -29,7 +30,8 @@ namespace fs = boost::filesystem;
 typedef std::vector<float> argodata_t;
 typedef std::vector<argodata_t> argotable_t;
 
-struct argodata_struct {
+struct argodata_struct
+{
   std::size_t N_PROF;
   argotable_t depths;
   argotable_t speeds_of_sound;
@@ -39,7 +41,8 @@ struct argodata_struct {
   std::vector<std::string> platforms;
 };
 
-const argodata_struct read_file_data(fs::path filepath) {
+const argodata_struct read_file_data(fs::path filepath)
+{
   using namespace netCDF;
   NcFile datafile(filepath.string(), NcFile::read);
 
@@ -72,7 +75,8 @@ const argodata_struct read_file_data(fs::path filepath) {
   std::vector<std::array<char, 8>> names(N_PROF);
   platformVar.getVar(names.data());
 
-  for (auto name : names) {
+  for (auto name : names)
+  {
     auto strnm = std::string(name.begin(), name.end());
     std::string::iterator end_pos =
         std::remove(strnm.begin(), strnm.end(), ' ');
@@ -91,7 +95,8 @@ const argodata_struct read_file_data(fs::path filepath) {
   longsVar.getVar(longs.data());
   dateVar.getVar(dates.data());
 
-  for (std::size_t j = 0; j < N_PROF; j++) {
+  for (std::size_t j = 0; j < N_PROF; j++)
+  {
     auto tempIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
     auto salIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
     auto depthIn = std::vector<float_t>(N_LEVELS, std::nan("nodata"));
@@ -105,13 +110,17 @@ const argodata_struct read_file_data(fs::path filepath) {
     tempVar.getVar(start, count, tempIn.data());
     depthVar.getVar(start, count, depthIn.data());
 
-    #pragma omp parallel for
-    for (std::size_t i = 0; i < N_LEVELS; i++) {
-      if (tempIn[i] != 99999 && salIn[i] != 99999 && depthIn[i] != 99999) {
+#pragma omp parallel for
+    for (std::size_t i = 0; i < N_LEVELS; i++)
+    {
+      if (tempIn[i] != 99999 && salIn[i] != 99999 && depthIn[i] != 99999)
+      {
         speed_of_sound_vec[i] = speed_of_sound::speed_of_sound(
             speed_of_sound::pressure_at_depth(depthIn[i], data.lats[j]),
             tempIn[i], salIn[i]);
-      } else {
+      }
+      else
+      {
         tempIn[i] = std::nan("nodata");
         salIn[i] = std::nan("nodata");
         depthIn[i] = std::nan("nodata");
@@ -120,19 +129,21 @@ const argodata_struct read_file_data(fs::path filepath) {
 
     {
       auto it = std::begin(speed_of_sound_vec);
-      for (; it != std::end(speed_of_sound_vec); ++it) {
+      for (; it != std::end(speed_of_sound_vec); ++it)
+      {
         if (std::isnan(*it))
           break;
       }
       auto size =
           (long unsigned int)std::distance(std::begin(speed_of_sound_vec), it);
 
-      if (size == 0) {
+      if (size == 0)
+      {
         continue;
       }
       speed_of_sound_vec.resize(size);
       depthIn.resize(size);
-      #pragma omp critical
+#pragma omp critical
       {
         data.lats.push_back(lats[j]);
         data.longs.push_back(longs[j]);
@@ -148,11 +159,13 @@ const argodata_struct read_file_data(fs::path filepath) {
   return std::move(data);
 }
 
-int other_main(int argc, char *argv[]) {
+int other_main(int argc, char *argv[])
+{
 
   std::cout << "ARGO (Met Office Hadley Centre) Data" << std::endl;
 
-  if (argc == 1) {
+  if (argc == 1)
+  {
     std::cout << "Please pass a filename to the programme" << std::endl;
     return 1;
   }
@@ -161,9 +174,11 @@ int other_main(int argc, char *argv[]) {
 
   auto data = read_file_data(argument);
 
-  std::cout << "[INFO]: FINISHED PROCESSING\n" << std::endl;
+  std::cout << "[INFO]: FINISHED PROCESSING\n"
+            << std::endl;
 #pragma omp parallel for
-  for (std::size_t i = 0; i < data.N_PROF; i++) {
+  for (std::size_t i = 0; i < data.N_PROF; i++)
+  {
     auto sos_vect = data.speeds_of_sound[i];
     auto depth_vect = data.depths[i];
 
@@ -196,7 +211,8 @@ int other_main(int argc, char *argv[]) {
 }
 
 template <typename MESH>
-void read_to_tree(const fs::path &filepath, MESH &mesh){
+void read_to_tree(const fs::path &filepath, MESH &mesh)
+{
   using namespace netCDF;
 
   NcFile datafile(filepath.string(), NcFile::read);
@@ -204,7 +220,7 @@ void read_to_tree(const fs::path &filepath, MESH &mesh){
   static const std::size_t N_PROF = datafile.getDim("N_PROF").getSize();
   static const std::size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
 
-  NcVar latsVar, longsVar, dateVar, platformVar, tempVar, depthVar, salinityVar;
+  NcVar latsVar, longsVar, dateVar, platformVar, tempVar, depthVar, salinityVar, profileQualityVar, levelsQualityVar;
   latsVar = datafile.getVar("LATITUDE");
   longsVar = datafile.getVar("LONGITUDE");
   dateVar = datafile.getVar("JULD");
@@ -213,43 +229,61 @@ void read_to_tree(const fs::path &filepath, MESH &mesh){
   depthVar = datafile.getVar("DEPH_CORRECTED");
   salinityVar = datafile.getVar("PSAL_CORRECTED");
 
+  profileQualityVar = datafile.getVar("QC_FLAGS_PROFILES");
+  levelsQualityVar = datafile.getVar("QC_FLAGS_LEVELS");
+
+  std::vector<double_t> lats(latsVar.getDim(0).getSize(), 0), lons(longsVar.getDim(0).getSize(), 0), dates(dateVar.getDim(0).getSize(), 0);
+
   if (tempVar.isNull() || depthVar.isNull() || salinityVar.isNull())
-    exit(1);
+  {
+    throw std::runtime_error("File format not as expected.");
+  }
 
-  for (std::size_t i = 0; i < N_PROF; i++){
-    double_t lat, lon, date;
-    std::vector<size_t>index{i};
+  latsVar.getVar(lats.data());
+  longsVar.getVar(lons.data());
+  dateVar.getVar(dates.data());
 
-    latsVar.getVar(index, &lat);
-    longsVar.getVar(index, &lon);
-    dateVar.getVar(index, &date);
+  for (std::size_t i = 0; i < N_PROF; i++)
+  {
 
-    auto tempIn = std::vector<double_t>(N_LEVELS, std::nan("nodata"));
-    auto salIn = std::vector<double_t>(N_LEVELS, std::nan("nodata"));
-    auto depthIn = std::vector<double_t>(N_LEVELS, std::nan("nodata"));
+    uint32_t profile_qc;
+    profileQualityVar.getVar(std::vector<size_t>{i}, &profile_qc);
+    if (profile_qc != 0)
+    {
+      //std::cerr << "Rejected profile " << i << " with code " << profile_qc << std::endl;
+      continue;
+    }
 
-    std::vector<double_t>actual_depths;
-    std::vector<double_t>speed_of_sound_vec;
+    double_t lat = lats[i], lon = lons[i], date = dates[i];
+
+    std::vector<double_t> tempIn(tempVar.getDim(0).getSize(), std::nan("nodata"));
+    std::vector<double_t> salIn(salinityVar.getDim(0).getSize(), std::nan("nodata"));
+    std::vector<double_t> depthIn(depthVar.getDim(0).getSize(), std::nan("nodata"));
+    std::vector<uint32_t> levelQC(levelsQualityVar.getDim(0).getSize(), std::nan("nodata"));
+
+    std::vector<double_t> actual_depths;
+    std::vector<double_t> speed_of_sound_vec;
 
     actual_depths.reserve(N_LEVELS);
     speed_of_sound_vec.reserve(N_LEVELS);
 
-    std::vector<std::size_t> start {i, 0};
-    std::vector<std::size_t> count {1, N_LEVELS};
+    std::vector<std::size_t> start{i, 0};
+    std::vector<std::size_t> count{1, N_LEVELS};
 
+    levelsQualityVar.getVar(start, count, levelQC.data());
     salinityVar.getVar(start, count, salIn.data());
     tempVar.getVar(start, count, tempIn.data());
     depthVar.getVar(start, count, depthIn.data());
 
-    auto no_value = [](double_t s) {return s == 99999 || std::isnan(s);};
-    
-    for (std::size_t j = 0; j < N_LEVELS; j++) {
-      if (!no_value(tempIn[j]) && !no_value(salIn[j]) && !no_value(depthIn[j])) {
-        speed_of_sound_vec.push_back(speed_of_sound::speed_of_sound(
-            speed_of_sound::pressure_at_depth(depthIn[j], lat),
-            tempIn[j], salIn[j]));
-        actual_depths.push_back(depthIn[j]);
-      }
+    auto no_value = [](double_t s) { return s == 99999 || std::isnan(s); };
+
+    for (std::size_t j = 0; j < N_LEVELS; j++)
+    {
+      if (levelQC[j] != 0) continue;
+      speed_of_sound_vec.push_back(speed_of_sound::speed_of_sound(
+          speed_of_sound::pressure_at_depth(depthIn[j], lat),
+          tempIn[j], salIn[j]));
+      actual_depths.push_back(depthIn[j]);
     }
 
     Chisquared fcn(actual_depths, speed_of_sound_vec);
@@ -262,44 +296,60 @@ void read_to_tree(const fs::path &filepath, MESH &mesh){
     ROOT::Minuit2::FunctionMinimum min = migrad();
 
     auto minCoeff = min.UserParameters().Params();
-    auto xmin = -minCoeff[1]/(2*minCoeff[2]);
-    auto minmax = std::minmax(actual_depths.begin(), actual_depths.end());
+    auto xmin = -minCoeff[1] / (2 * minCoeff[2]);
 
-    if (xmin < *minmax.first || xmin > *minmax.second || isnan(xmin)) continue;
-    #pragma omp critical 
+    if (xmin > *(actual_depths.end()) || xmin < *(actual_depths.begin()) || isnan(xmin))
+      continue;
+#pragma omp critical
     {
+      std::string filename = "images/" + std::to_string(date) + "." + std::to_string(i) + ".eps";
+      Gnuplot gp;
+      gp << "set terminal postscript enhanced eps color size 3,3\n"
+          "set output '"
+       << filename << "'\n"
+       << "set key off\n";
+    grapher::plot_lines(gp, actual_depths, speed_of_sound_vec);
       mesh.insert(lon, lat, date, xmin);
     }
   }
-    
-
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
   typedef oQTM_Mesh<double_t, double_t, double_t, 5> mesh_t;
-  if (argc == 1 || !fs::is_directory(argv[1])) {
+  if (argc == 1 || !fs::is_directory(argv[1]))
+  {
     std::cout << "Please pass a directory or filename to the programme" << std::endl;
     return 1;
   }
 
-
   mesh_t globemesh;
 
   auto loc = globemesh.location(-40.671851, 33.792983);
+  auto dirs = fs::directory_iterator(argv[1]);
 
-  for (const auto &path: fs::directory_iterator(argv[1])) {
-    if (fs::is_regular_file(path) && path.path().extension() == ".nc"){
-      try {
+  std::vector<fs::path> paths(fs::begin(dirs), fs::end(dirs));
+
+  for (std::size_t i = 0; i < paths.size(); i++)
+  {
+    fs::path path = paths[i];
+    if (fs::is_regular_file(path) && path.extension() == ".nc")
+    {
+      try
+      {
         read_to_tree(path, globemesh);
-      } catch (const netCDF::exceptions::NcInvalidCoords &e) {
+      }
+      catch (const netCDF::exceptions::NcInvalidCoords &e)
+      {
         std::cerr << path << ": " << e.what() << std::endl;
         continue;
       }
     }
   }
 
-  auto a = globemesh.get_points(std::vector<size_t>(loc.begin(), loc.begin() + 3));
-  for (auto i : a) {
+  auto a = globemesh.get_points(std::vector<size_t>(loc.begin(), loc.begin() + 2));
+  for (auto i : a)
+  {
     std::cout << i.first << "," << i.second << std::endl;
   }
 }
