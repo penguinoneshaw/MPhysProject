@@ -56,59 +56,7 @@ const T speed_of_sound(const T &p, const T &t, const T &s)
   return C_w + A * s + B * s * std::sqrt(s) + D * s * s;
 }
 
-template <typename T>
-std::size_t find_SOFAR_channel(const std::vector<T> &speed_of_sound)
-{
-  typedef typename std::vector<T>::const_iterator extremum;
-  typedef std::vector<extremum> extrema_positions;
-  extrema_positions minima;
-  extrema_positions maxima;
-  extrema_positions stationary;
 
-  auto end = std::end(speed_of_sound);
-  auto begin = 1 + std::begin(speed_of_sound);
-
-  T minimum = std::numeric_limits<T>::max();
-  extremum min_pos = std::end(speed_of_sound);
-
-  for (; begin != end - 1; begin++)
-  {
-    if (*begin < *(begin - 1) && *begin < *(begin + 1))
-    {
-      for (auto backtracker = begin; backtracker != std::begin(speed_of_sound); --backtracker)
-      {
-        if (*backtracker > *begin + 5)
-        {
-          for (auto tracker = begin; tracker != end; tracker++)
-          {
-            if (*tracker > *begin + 5)
-            {
-              minima.push_back(begin);
-              if (minimum > *begin)
-              {
-                min_pos = begin;
-                minimum = *begin;
-              }
-              break;
-            }
-          }
-
-          break;
-        }
-      }
-    }
-    else if (*begin > *(begin - 1) && *begin > *(begin + 1))
-    {
-      maxima.push_back(begin);
-    }
-    else if (std::abs(*begin - *(begin - 1)) < 1e-4)
-    {
-      stationary.push_back(begin);
-    }
-  }
-
-  return std::distance(std::begin(speed_of_sound), min_pos);
-}
-} // namespace speed_of_sound
+} // namespace speed_of_sound 
 
 #endif // H_SPEED_OF_SOUND

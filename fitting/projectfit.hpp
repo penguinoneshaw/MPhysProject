@@ -6,9 +6,11 @@
 #include "Minuit2/FCNBase.h"
 #include "Minuit2/FunctionMinimum.h"
 
-
-std::vector<float> low_pass_filter(const std::vector<float> &vector, const std::size_t cutoff = 15);
-std::vector<float> moving_average(const std::vector<float> &vector, const std::size_t period = 10);
+namespace fit {
+  std::vector<float> low_pass_filter(const std::vector<float> &vector, const std::size_t cutoff = 15);
+  template <typename T> std::vector<T> moving_average(const std::vector<T> &vector, const std::size_t period = 10);
+  template <typename T> std::size_t find_SOFAR_channel(const std::vector<T> &speed_of_sound);
+}
 
 class Chisquared : public ROOT::Minuit2::FCNBase
 {
