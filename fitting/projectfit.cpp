@@ -6,6 +6,12 @@
 #include <numeric>
 #include <vector>
 
+
+#include "Minuit2/FunctionMinimum.h"
+#include "Minuit2/MnMigrad.h"
+#include "Minuit2/MnPrint.h"
+#include "Minuit2/MnUserParameters.h"
+
 namespace fit {
 std::vector<float> low_pass_filter(const std::vector<float> &vector,
                                    const std::size_t cutoff) {
@@ -58,50 +64,30 @@ std::vector<T> moving_average(const std::vector<T> &vector,
 template std::vector<double_t>
 moving_average(const std::vector<double_t> &vector, const std::size_t period);
 
+template std::vector<float_t> moving_average(const std::vector<float_t> &vector, const std::size_t period);
+
+
 template <typename T>
-std::size_t find_SOFAR_channel(const std::vector<T> &speed_of_sound) {
-  typedef typename std::vector<T>::const_iterator extremum;
-  typedef std::vector<extremum> extrema_positions;
-  extrema_positions minima;
-  extrema_positions maxima;
-  extrema_positions stationary;
+T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths) {
+  Chisquared fcn(depths, speed_of_sound);
+    ROOT::Minuit2::MnUserParameters upar;
+    upar.Add("c_0", depths[0], 1);
+    upar.Add("c_1", 0, 1);
+    upar.Add("c_2", 0, 1);
 
-  auto end = std::end(speed_of_sound);
-  auto begin = 1 + std::begin(speed_of_sound);
+    ROOT::Minuit2::MnMigrad migrad(fcn, upar);
+    ROOT::Minuit2::FunctionMinimum min = migrad();
 
-  T minimum = std::numeric_limits<T>::max();
-  extremum min_pos = std::end(speed_of_sound);
+    auto minCoeff = min.UserParameters().Params();
+    auto xmin = -minCoeff[1] / (2 * minCoeff[2]);
 
-  for (; begin != end - 1; begin++) {
-    if (*begin < *(begin - 1) && *begin < *(begin + 1)) {
-      for (auto backtracker = begin; backtracker != std::begin(speed_of_sound);
-           --backtracker) {
-        if (*backtracker > *begin + 5) {
-          for (auto tracker = begin; tracker != end; tracker++) {
-            if (*tracker > *begin + 5) {
-              minima.push_back(begin);
-              if (minimum > *begin) {
-                min_pos = begin;
-                minimum = *begin;
-              }
-              break;
-            }
-          }
+    if (xmin > *(depths.end()) || xmin < *(depths.begin()) || isnan(xmin))
+      throw std::runtime_error("out of region");
 
-          break;
-        }
-      }
-    } else if (*begin > *(begin - 1) && *begin > *(begin + 1)) {
-      maxima.push_back(begin);
-    } else if (std::abs(*begin - *(begin - 1)) < 1e-4) {
-      stationary.push_back(begin);
-    }
-  }
-
-  return std::distance(std::begin(speed_of_sound), min_pos);
+  return xmin;
 }
 
-template std::size_t find_SOFAR_channel(const std::vector<double_t> &speed_of_sound);
+template double_t find_SOFAR_channel(const std::vector<double_t> &speed_of_sound, const std::vector<double_t> &depths);
 
 } // namespace fit
 

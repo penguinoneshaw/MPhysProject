@@ -35,7 +35,7 @@ set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
 target_link_libraries(ProjectModelling PUBLIC ProjectFit)
-target_link_libraries(ProjectModelling PRIVATE OpenMP::OpenMP_CXX ${Boost_LIBRARIES} Minuit2::Minuit2 stdc++fs)
+target_link_libraries(ProjectModelling PRIVATE OpenMP::OpenMP_CXX ${Boost_LIBRARIES} Minuit2::Minuit2)
 
 target_link_libraries(ProjectModelling PRIVATE ${NCDF})
 target_link_libraries(ProjectModelling PRIVATE ${NCDFC})

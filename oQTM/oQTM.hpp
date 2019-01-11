@@ -221,6 +221,13 @@ class oQTM_Mesh
     }
     quad->add_to_data(key, value);
   }
+
+  void insert(std::vector<std::tuple<T, T, K, V>> locations){
+    std::for_each(locations.begin(), locations.end(), [=](const std::tuple<T, T, K, V> &point) -> void {
+      auto [lon, lat, key, value] = point;
+      this->insert(lon, lat, key, value);
+    });
+  }
 };
 
 #endif // H_oQTM

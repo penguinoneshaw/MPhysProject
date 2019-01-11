@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <numeric>
 
 namespace poly
 {
@@ -13,13 +14,9 @@ const T horners_method(const std::vector<T> &coefficients, const T &x_0)
   // Evaluates polynomials defined with coefficients vector little endian (i.e.
   // a_0 + x*a_1 + ...)
 
-  T b = 0.0;
-
-  for (auto rit = coefficients.rbegin(); rit != coefficients.rend(); ++rit)
-  {
-    b = *rit + b * x_0;
-  }
-  return b;
+  return std::accumulate(coefficients.rbegin(), coefficients.rend(), 0.0, [x_0](T a, T b){
+    return b + x_0 * a;
+  });
 }
 
 template <class T>

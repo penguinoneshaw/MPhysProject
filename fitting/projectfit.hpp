@@ -9,7 +9,7 @@
 namespace fit {
   std::vector<float> low_pass_filter(const std::vector<float> &vector, const std::size_t cutoff = 15);
   template <typename T> std::vector<T> moving_average(const std::vector<T> &vector, const std::size_t period = 10);
-  template <typename T> std::size_t find_SOFAR_channel(const std::vector<T> &speed_of_sound);
+  template <typename T> T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths);
 }
 
 class Chisquared : public ROOT::Minuit2::FCNBase

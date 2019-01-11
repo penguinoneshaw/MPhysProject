@@ -9,14 +9,10 @@
 #include <mutex>
 #include <numeric>
 #include <vector>
+#include <tuple>
 
 #include "boost/filesystem.hpp"
 #include <netcdf>
-
-#include "Minuit2/FunctionMinimum.h"
-#include "Minuit2/MnMigrad.h"
-#include "Minuit2/MnPrint.h"
-#include "Minuit2/MnUserParameters.h"
 #include "ncException.h"
 
 #include "fitting/projectfit.hpp"
@@ -27,8 +23,8 @@
 
 namespace fs = boost::filesystem;
 
-template <typename MESH>
-void read_to_tree(const fs::path &filepath, MESH &mesh)
+template <typename T, typename K, typename V>
+std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
 {
   using namespace netCDF;
 
@@ -36,6 +32,9 @@ void read_to_tree(const fs::path &filepath, MESH &mesh)
 
   static const std::size_t N_PROF = datafile.getDim("N_PROF").getSize();
   static const std::size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
+
+  std::vector<std::tuple<T, T, K, V>> results;
+  results.reserve(N_PROF);
 
   NcVar latsVar, longsVar, dateVar, platformVar, tempVar, depthVar, salinityVar, profileQualityVar, levelsQualityVar;
   latsVar = datafile.getVar("LATITUDE");
@@ -49,26 +48,37 @@ void read_to_tree(const fs::path &filepath, MESH &mesh)
   profileQualityVar = datafile.getVar("QC_FLAGS_PROFILES");
   levelsQualityVar = datafile.getVar("QC_FLAGS_LEVELS");
 
-  std::vector<double_t> lats(latsVar.getDim(0).getSize(), 0), lons(longsVar.getDim(0).getSize(), 0), dates(dateVar.getDim(0).getSize(), 0);
+  std::vector<T> lats(latsVar.getDim(0).getSize(), 0), lons(longsVar.getDim(0).getSize(), 0);
+  std::vector<K> dates(dateVar.getDim(0).getSize(), 0);
 
   if (tempVar.isNull() || depthVar.isNull() || salinityVar.isNull())
   {
     throw std::runtime_error("File format not as expected.");
   }
-
-  latsVar.getVar(lats.data());
-  longsVar.getVar(lons.data());
-  dateVar.getVar(dates.data());
+#pragma omp critical
+  {
+    latsVar.getVar(lats.data());
+    longsVar.getVar(lons.data());
+    dateVar.getVar(dates.data());
+  }
 
   for (std::size_t i = 0; i < N_PROF; i++)
   {
-
-    uint32_t profile_qc;
-    profileQualityVar.getVar(std::vector<size_t>{i}, &profile_qc);
-    if (profile_qc != 0)
+    try
     {
-      //std::cerr << "Rejected profile " << i << " with code " << profile_qc << std::endl;
-      continue;
+      uint32_t profile_qc;
+      profileQualityVar.getVar(std::vector<size_t>{i}, &profile_qc);
+
+      if (profile_qc != 0)
+      {
+        //std::cerr << "Rejected profile " << i << " with code " << profile_qc << std::endl;
+        continue;
+      }
+    }
+    catch (const netCDF::exceptions::NcInvalidCoords &e)
+    {
+      std::cerr << filepath << ": " << e.what() << std::endl;
+      break;
     }
 
     double_t lat = lats[i], lon = lons[i], date = dates[i];
@@ -87,48 +97,57 @@ void read_to_tree(const fs::path &filepath, MESH &mesh)
     std::vector<std::size_t> start{i, 0};
     std::vector<std::size_t> count{1, N_LEVELS};
 
-    levelsQualityVar.getVar(start, count, levelQC.data());
-    salinityVar.getVar(start, count, salIn.data());
-    tempVar.getVar(start, count, tempIn.data());
-    depthVar.getVar(start, count, depthIn.data());
+    try
+    {
+#pragma omp critical
+      {
+        levelsQualityVar.getVar(start, count, levelQC.data());
+        salinityVar.getVar(start, count, salIn.data());
+        tempVar.getVar(start, count, tempIn.data());
+        depthVar.getVar(start, count, depthIn.data());
+      }
+    }
+    catch (const netCDF::exceptions::NcInvalidCoords &e)
+    {
+      std::cerr << filepath << ": " << e.what() << std::endl;
+      break;
+    }
 
     auto no_value = [](double_t s) { return s == 99999 || std::isnan(s); };
 
     for (std::size_t j = 0; j < N_LEVELS; j++)
     {
-      if (levelQC[j] != 0) continue;
+      if (levelQC[j] != 0)
+        continue;
       speed_of_sound_vec.push_back(speed_of_sound::speed_of_sound(
           speed_of_sound::pressure_at_depth(depthIn[j], lat),
           tempIn[j], salIn[j]));
       actual_depths.push_back(depthIn[j]);
     }
-
-    Chisquared fcn(actual_depths, speed_of_sound_vec);
-    ROOT::Minuit2::MnUserParameters upar;
-    upar.Add("c_0", actual_depths[0], 1);
-    upar.Add("c_1", 0, 1);
-    upar.Add("c_2", 0, 1);
-
-    ROOT::Minuit2::MnMigrad migrad(fcn, upar);
-    ROOT::Minuit2::FunctionMinimum min = migrad();
-
-    auto minCoeff = min.UserParameters().Params();
-    auto xmin = -minCoeff[1] / (2 * minCoeff[2]);
-
-    if (xmin > *(actual_depths.end()) || xmin < *(actual_depths.begin()) || isnan(xmin))
-      continue;
-#pragma omp critical
+    try
     {
+      auto xmin = fit::find_SOFAR_channel(speed_of_sound_vec, actual_depths);
+#pragma omp critical
+      {
+        /*
       std::string filename = "images/" + std::to_string(date) + "." + std::to_string(i) + ".eps";
       Gnuplot gp;
       gp << "set terminal postscript enhanced eps color size 3,3\n"
           "set output '"
        << filename << "'\n"
        << "set key off\n";
-    grapher::plot_lines(gp, actual_depths, speed_of_sound_vec);
-      mesh.insert(lon, lat, date, xmin);
+      grapher::plot_lines(gp, actual_depths, speed_of_sound_vec); */
+
+        results.push_back(std::tie(lon, lat, date, xmin));
+      }
+    }
+    catch (std::runtime_error e)
+    {
+      continue;
     }
   }
+
+  return results;
 }
 
 int main(int argc, char *argv[])
@@ -152,14 +171,10 @@ int main(int argc, char *argv[])
     fs::path path = paths[i];
     if (fs::is_regular_file(path) && path.extension() == ".nc")
     {
-      try
+      auto points = read_to_tree<double_t, double_t, double_t>(path);
+#pragma omp critical
       {
-        read_to_tree(path, globemesh);
-      }
-      catch (const netCDF::exceptions::NcInvalidCoords &e)
-      {
-        std::cerr << path << ": " << e.what() << std::endl;
-        continue;
+        globemesh.insert(points);
       }
     }
   }
