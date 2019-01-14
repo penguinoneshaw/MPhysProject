@@ -124,19 +124,25 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
           tempIn[j], salIn[j]));
       actual_depths.push_back(depthIn[j]);
     }
+
+    if (actual_depths.size() < 10)
+    {
+      continue;
+    };
+
     try
     {
       auto xmin = fit::find_SOFAR_channel(speed_of_sound_vec, actual_depths);
 #pragma omp critical
       {
-        /*
-      std::string filename = "images/" + std::to_string(date) + "." + std::to_string(i) + ".eps";
-      Gnuplot gp;
-      gp << "set terminal postscript enhanced eps color size 3,3\n"
-          "set output '"
-       << filename << "'\n"
-       << "set key off\n";
-      grapher::plot_lines(gp, actual_depths, speed_of_sound_vec); */
+/*
+        std::string filename = "images/" + std::to_string(date) + "." + std::to_string(i) + ".eps";
+        Gnuplot gp;
+        gp << "set terminal postscript enhanced eps color size 3,3\n"
+              "set output '"
+           << filename << "'\n"
+           << "set key off\n";
+        grapher::plot_lines(gp, actual_depths, speed_of_sound_vec); */
 
         results.push_back(std::tie(lon, lat, date, xmin));
       }
@@ -165,14 +171,14 @@ int main(int argc, char *argv[])
   auto dirs = fs::directory_iterator(argv[1]);
 
   std::vector<fs::path> paths(fs::begin(dirs), fs::end(dirs));
-
+  #pragma omp parallel
   for (std::size_t i = 0; i < paths.size(); i++)
   {
     fs::path path = paths[i];
     if (fs::is_regular_file(path) && path.extension() == ".nc")
     {
       auto points = read_to_tree<double_t, double_t, double_t>(path);
-#pragma omp critical
+#pragma omp task
       {
         globemesh.insert(points);
       }

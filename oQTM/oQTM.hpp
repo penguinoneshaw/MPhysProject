@@ -8,6 +8,7 @@
 #include <tuple>
 #include <memory>
 #include <stdexcept>
+#include <mutex>
 
 class BeyondTreeDepthError : public std::logic_error
 {
@@ -89,6 +90,7 @@ class oQTM_Mesh
   typedef oQTM_Quadrant<K, V, N_LEVELS> octant;
   typedef std::shared_ptr<octant> quad_ptr;
   std::array<quad_ptr, 8> quadrants;
+  std::mutex write_mutex;
 
   public:
   oQTM_Mesh(){};
@@ -222,7 +224,8 @@ class oQTM_Mesh
     quad->add_to_data(key, value);
   }
 
-  void insert(std::vector<std::tuple<T, T, K, V>> locations){
+  void insert(const std::vector<std::tuple<T, T, K, V>> locations){
+    std::lock_guard lock(write_mutex);
     std::for_each(locations.begin(), locations.end(), [=](const std::tuple<T, T, K, V> &point) -> void {
       auto [lon, lat, key, value] = point;
       this->insert(lon, lat, key, value);
