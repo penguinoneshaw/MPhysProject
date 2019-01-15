@@ -192,9 +192,10 @@ int main(int argc, char *argv[])
   }
 
   auto a = globemesh.get_points(std::vector<size_t>(loc.begin(), loc.end()));
-  if (fs::is_directory("output") || fs::create_directory("output")) {
 	std::stringstream filename;
+  if (fs::is_directory("output") || fs::create_directory("output")) {
 	filename << "output/";
+  }
 	for (auto i: loc) filename << (int) i << '.';
 	filename << "results.csv";
 
@@ -206,6 +207,5 @@ int main(int argc, char *argv[])
 		
   	}
 	fileout.close();
-  }
 }
 
