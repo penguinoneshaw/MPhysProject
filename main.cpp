@@ -159,33 +159,34 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
 int main(int argc, char *argv[])
 {
   typedef oQTM_Mesh<double_t, double_t, double_t, 5> mesh_t;
-  if (argc == 1 || !fs::is_directory(argv[1]))
+  /*if (argc == 1 || !fs::is_directory(argv[1]))
   {
     std::cout << "Please pass a directory or filename to the programme" << std::endl;
     return 1;
-  }
+  }*/
 
   mesh_t globemesh;
 
   auto loc = globemesh.location(-40.671851, 33.792983);
   auto dirs = fs::directory_iterator(argv[1]);
-
-  std::vector<fs::path> paths(fs::begin(dirs), fs::end(dirs));
-  #pragma omp parallel
+  
+  std::vector<fs::directory_entry> paths(fs::begin(dirs), fs::end(dirs));
+  //#pragma omp parallel
   for (std::size_t i = 0; i < paths.size(); i++)
   {
-    fs::path path = paths[i];
-    if (fs::is_regular_file(path) && path.extension() == ".nc")
+    auto path = paths[i];
+	std::cout << path << std::endl;
+    if (/*fs::is_regular_file(path) && */path.path().extension() == ".nc")
     {
       auto points = read_to_tree<double_t, double_t, double_t>(path);
-#pragma omp task
+//#pragma omp task
       {
         globemesh.insert(points);
       }
     }
   }
 
-  auto a = globemesh.get_points(std::vector<size_t>(loc.begin(), loc.begin() + 2));
+  auto a = globemesh.get_points(std::vector<size_t>(loc.begin(), loc.end()));
   for (auto i : a)
   {
     std::cout << i.first << "," << i.second << std::endl;
