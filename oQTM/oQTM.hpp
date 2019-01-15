@@ -154,17 +154,17 @@ class oQTM_Mesh
     uint8_t octant;
     std::array<uint8_t, N_LEVELS> location;
 
-    if (lat > 0)
+    if (lat > 0.0)
     {
-      if (lon < -90)
+      if (lon < -90.0)
       {
         octant = 0;
       }
-      else if (lon < 0)
+      else if (lon < 0.0)
       {
         octant = 1;
       }
-      else if (lon < 90)
+      else if (lon < 90.0)
       {
         octant = 2;
       }
@@ -175,15 +175,15 @@ class oQTM_Mesh
     }
     else
     {
-      if (lon < -90)
+      if (lon < -90.0)
       {
         octant = 4;
       }
-      else if (lon < 0)
+      else if (lon < 0.0)
       {
         octant = 5;
       }
-      else if (lon < 90)
+      else if (lon < 90.0)
       {
         octant = 6;
       }
@@ -193,9 +193,9 @@ class oQTM_Mesh
       }
     }
 
-    lon = std::fmod(lon + 180.0, 90) / 90.0;
-    lat = std::abs(lat) / 90;
-    lon *= 1 - lat;
+    lon = std::fmod(lon + 180.0, 90.0) / 90.0;
+    lat = std::abs(lat) / 90.0;
+    lon *= 1.0 - lat;
 
     for (std::size_t i = 1; i < N_LEVELS; i++)
     {

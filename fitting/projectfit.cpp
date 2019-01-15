@@ -62,8 +62,8 @@ std::vector<T> moving_average(const std::vector<T> &vector,
   for (auto it = std::begin(vector); it + period < std::end(vector); ++it)
   {
     output.push_back(std::accumulate(it,
-                                it + period, 0) /
-                period);
+                                it + period, (T) 0) /
+                static_cast<T>(period));
   }
   output.shrink_to_fit();
   return output;

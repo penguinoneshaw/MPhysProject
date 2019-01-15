@@ -8,6 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <mutex>
+#include <iomanip>
 #include <numeric>
 #include <vector>
 #include <tuple>
@@ -136,7 +137,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
     try
     {
       auto xmin = fit::find_SOFAR_channel(speed_of_sound_vec, actual_depths);
-	  auto tavg = std::accumulate(actual_temperatures.begin(), actual_temperatures.end(), 0)/actual_temperatures.size();
+	  auto tavg = std::accumulate(actual_temperatures.begin(), actual_temperatures.end(), (double_t) 0)/ ((double_t) actual_temperatures.size());
 #pragma omp critical
       {
 /*
@@ -163,7 +164,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
 int main(int argc, char *argv[])
 {
   typedef std::tuple<double_t, double_t> value_t;
-  typedef oQTM_Mesh<double_t, double_t, value_t, 10> mesh_t;
+  typedef oQTM_Mesh<double_t, double_t, value_t, 7> mesh_t;
   /*if (argc == 1 || !fs::is_directory(argv[1]))
   {
     std::cout << "Please pass a directory or filename to the programme" << std::endl;
@@ -191,14 +192,14 @@ int main(int argc, char *argv[])
   }
 
   auto a = globemesh.get_points(std::vector<size_t>(loc.begin(), loc.end()));
-  if (fs::create_directory("output")) {
+  if (fs::is_directory("output") || fs::create_directory("output")) {
 	std::stringstream filename;
 	filename << "output/";
-	for (auto i: loc) filename << i << '.';
+	for (auto i: loc) filename << (int) i << '.';
 	filename << "results.csv";
 
 	std::ofstream fileout(filename.str());
-
+  fileout << std::fixed << std::setprecision(8);
 	for (auto i : a)
 		{
 			fileout << i.first << "," << std::get<0>(i.second) << "," << std::get<1>(i.second) << std::endl;
