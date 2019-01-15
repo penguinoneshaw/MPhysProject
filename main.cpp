@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <mutex>
 #include <numeric>
@@ -88,12 +89,12 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
     std::vector<double_t> depthIn(depthVar.getDim(0).getSize(), std::nan("nodata"));
     std::vector<uint32_t> levelQC(levelsQualityVar.getDim(0).getSize(), std::nan("nodata"));
 
-    std::vector<double_t> actual_depths;
+    std::vector<double_t> actual_depths, actual_temperatures;
     std::vector<double_t> speed_of_sound_vec;
 
     actual_depths.reserve(N_LEVELS);
     speed_of_sound_vec.reserve(N_LEVELS);
-
+	actual_temperatures.reserve(N_LEVELS);
     std::vector<std::size_t> start{i, 0};
     std::vector<std::size_t> count{1, N_LEVELS};
 
@@ -123,6 +124,8 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
           speed_of_sound::pressure_at_depth(depthIn[j], lat),
           tempIn[j], salIn[j]));
       actual_depths.push_back(depthIn[j]);
+	  
+	  actual_temperatures.push_back(tempIn[j]);
     }
 
     if (actual_depths.size() < 10)
@@ -133,6 +136,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
     try
     {
       auto xmin = fit::find_SOFAR_channel(speed_of_sound_vec, actual_depths);
+	  auto tavg = std::accumulate(actual_temperatures.begin(), actual_temperatures.end(), 0)/actual_temperatures.size();
 #pragma omp critical
       {
 /*
@@ -143,8 +147,8 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
            << filename << "'\n"
            << "set key off\n";
         grapher::plot_lines(gp, actual_depths, speed_of_sound_vec); */
-
-        results.push_back(std::tie(lon, lat, date, xmin));
+		const V result{xmin, tavg};
+        results.push_back(std::tie(lon, lat, date, result));
       }
     }
     catch (std::runtime_error e)
@@ -158,7 +162,8 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
 
 int main(int argc, char *argv[])
 {
-  typedef oQTM_Mesh<double_t, double_t, double_t, 5> mesh_t;
+  typedef std::tuple<double_t, double_t> value_t;
+  typedef oQTM_Mesh<double_t, double_t, value_t, 10> mesh_t;
   /*if (argc == 1 || !fs::is_directory(argv[1]))
   {
     std::cout << "Please pass a directory or filename to the programme" << std::endl;
@@ -175,10 +180,9 @@ int main(int argc, char *argv[])
   for (std::size_t i = 0; i < paths.size(); i++)
   {
     auto path = paths[i];
-	std::cout << path << std::endl;
     if (/*fs::is_regular_file(path) && */path.path().extension() == ".nc")
     {
-      auto points = read_to_tree<double_t, double_t, double_t>(path);
+      auto points = read_to_tree<double_t, double_t, value_t> (path);
 //#pragma omp task
       {
         globemesh.insert(points);
@@ -187,8 +191,20 @@ int main(int argc, char *argv[])
   }
 
   auto a = globemesh.get_points(std::vector<size_t>(loc.begin(), loc.end()));
-  for (auto i : a)
-  {
-    std::cout << i.first << "," << i.second << std::endl;
+  if (fs::create_directory("output")) {
+	std::stringstream filename;
+	filename << "output/";
+	for (auto i: loc) filename << i << '.';
+	filename << "results.csv";
+
+	std::ofstream fileout(filename.str());
+
+	for (auto i : a)
+		{
+			fileout << i.first << "," << std::get<0>(i.second) << "," << std::get<1>(i.second) << std::endl;
+		
+  	}
+	fileout.close();
   }
 }
+
