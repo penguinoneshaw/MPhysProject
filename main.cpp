@@ -164,7 +164,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
 int main(int argc, char *argv[])
 {
   typedef std::tuple<double_t, double_t> value_t;
-  typedef oQTM_Mesh<double_t, double_t, value_t, 7> mesh_t;
+  typedef oQTM_Mesh<double_t, double_t, value_t, 10> mesh_t;
   /*if (argc == 1 || !fs::is_directory(argv[1]))
   {
     std::cout << "Please pass a directory or filename to the programme" << std::endl;
@@ -173,7 +173,6 @@ int main(int argc, char *argv[])
 
   mesh_t globemesh;
 
-  auto loc = globemesh.location(-40.671851, 33.792983);
   auto dirs = fs::directory_iterator(argv[1]);
   
   std::vector<fs::directory_entry> paths(fs::begin(dirs), fs::end(dirs));
@@ -191,21 +190,29 @@ int main(int argc, char *argv[])
     }
   }
 
-  auto a = globemesh.get_points(std::vector<size_t>(loc.begin(), loc.end()));
+  std::vector<std::pair<double_t, double_t>> locations {
+  	{-40.671851, 33.792983},
+		{3.343785, 56.3836}
+  };
+
+
+  for (auto position: locations) {
+	  auto loc = globemesh.location(position.first, position.second);
+  auto a = globemesh.get_points(std::vector<size_t>(loc.begin(), loc.begin()+8));
 	std::stringstream filename;
-  if (fs::is_directory("output") || fs::create_directory("output")) {
+	fs::create_directory("output");
 	filename << "output/";
-  }
+ 		
 	for (auto i: loc) filename << (int) i << '.';
 	filename << "results.csv";
 
 	std::ofstream fileout(filename.str());
-  fileout << std::fixed << std::setprecision(8);
+  	fileout << std::fixed << std::setprecision(8);
 	for (auto i : a)
 		{
 			fileout << i.first << "," << std::get<0>(i.second) << "," << std::get<1>(i.second) << std::endl;
 		
   	}
 	fileout.close();
+  }
 }
-
