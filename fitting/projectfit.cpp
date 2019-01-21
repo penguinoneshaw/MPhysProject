@@ -53,6 +53,45 @@ std::vector<float> low_pass_filter(const std::vector<float> &vector,
   return out;
 }
 
+std::vector<double_t> low_pass_filter(const std::vector<double_t> &vector,
+                                   const std::size_t cutoff)
+{
+  std::vector<double_t> in(vector);
+  double average = std::accumulate(in.begin(), in.end(), 0) / in.size();
+  for (auto &i : in)
+    i -= average;
+
+  std::vector<double_t> out(in.size());
+  fftw_complex *fft =
+      (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * in.size() / 2 + 1);
+  fftw_plan forward =
+      fftw_plan_dft_r2c_1d(in.size(), in.data(), fft, FFTW_ESTIMATE);
+  fftw_execute(forward);
+  fftw_destroy_plan(forward);
+
+  for (std::size_t i = 0; i < in.size() / 2 + 1; i++)
+  {
+    double window =
+        1.0 ? i < cutoff
+            : std::sqrt(std::exp(-(i - cutoff) * (i - cutoff) / 10.0));
+    fft[i][0] *= window;
+    fft[i][1] *= window;
+  }
+
+  fftw_plan backward =
+      fftw_plan_dft_c2r_1d(in.size(), fft, out.data(), FFTW_ESTIMATE);
+  fftw_execute(backward);
+  fftw_free(fft);
+
+  for (std::size_t i = 0; i < out.size(); i++)
+  {
+    out[i] /= out.size();
+    out[i] += average;
+  }
+
+  return out;
+}
+
 template <typename T>
 std::vector<T> moving_average(const std::vector<T> &vector,
                               const std::size_t period)
@@ -96,10 +135,8 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
   auto avg_sos = moving_average(speed_of_sound);
   auto avg_depth = moving_average(depths);
   auto minmax = std::minmax_element(avg_sos.begin(), avg_sos.end());
-  if (minmax.first == std::begin(avg_sos))
-  {
-    return 0;
-  } else if (minmax.first == std::end(avg_sos)) {
+  
+  if (minmax.first == std::end(avg_sos)) {
     throw std::runtime_error("out of region");
   } else {
     return avg_depth[std::distance(std::begin(avg_sos), minmax.first)];

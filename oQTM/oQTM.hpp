@@ -24,7 +24,7 @@ class oQTM_Quadrant
 private:
   typedef oQTM_Quadrant<K, V, N_LEVELS> subtree;
   typedef std::shared_ptr<subtree> subtree_ptr;
-
+  typedef std::array<uint8_t, N_LEVELS> location_t;
   std::array<subtree_ptr, 4> subtrees;
   std::multimap<K, V> data;
   std::size_t depth;
@@ -70,7 +70,7 @@ public:
     return subtrees[i];
   }
 
-  std::multimap<K, V> get_points(const std::vector<size_t>::iterator begin, const std::vector<size_t>::const_iterator &end)
+  std::multimap<K, V> get_points(const typename location_t::iterator begin, const typename location_t::const_iterator &end)
   {
     if (begin == end)
     {
@@ -107,12 +107,31 @@ class oQTM_Mesh
 
 
 
-  std::multimap<K, V> get_points(std::vector<size_t> location)
+  std::multimap<K, V> get_points(location_t location, std::size_t granularity = N_LEVELS)
   {
     if (location.size() > N_LEVELS)
       throw beyondTreeError;
     auto begin = location.begin();
-    return operator[](*begin)->get_points(begin + 1, location.end());
+    return operator[](*begin)->get_points(begin + 1, granularity < N_LEVELS ? location.begin() + granularity : location.end());
+  }
+
+  std::map<K, V> get_averaged_points(location_t location, std::size_t granularity = N_LEVELS){
+    if (location.size() > N_LEVELS)
+      throw beyondTreeError;
+    
+    std::map<K, V> result;
+    for (auto &element: get_points(location, granularity)) {
+      try {
+        auto curr = result.at(element.first);
+        result[element.first] = (curr + element.second) / 2.0;
+
+
+      } catch (std::out_of_range err) {
+        result[element.first] = element.second;
+      }
+    }
+
+    return result;
   }
 
   static inline std::tuple<T, T, uint8_t> nextlevel(const T &_x, const T &_y)

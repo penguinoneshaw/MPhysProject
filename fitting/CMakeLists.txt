@@ -3,7 +3,7 @@ add_library(ProjectFit SHARED projectfit.cpp)
 set_property(TARGET ProjectFit PROPERTY CXX_STANDARD_REQUIRED ON)
 set_property(TARGET ProjectFit PROPERTY CXX_STANDARD 14)
 
-target_link_libraries(ProjectFit PUBLIC fftw3f fftw3f_threads)
+target_link_libraries(ProjectFit PUBLIC fftw3f fftw3f_threads fftw3 fftw3_threads)
 target_include_directories(ProjectFit PRIVATE "../")
 
 find_package(OpenMP REQUIRED)

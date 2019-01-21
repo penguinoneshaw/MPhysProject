@@ -16,6 +16,7 @@
 #include "boost/filesystem.hpp"
 #include <netcdf>
 #include "ncException.h"
+#include "ncChar.h"
 
 #include "fitting/projectfit.hpp"
 
@@ -38,7 +39,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
   std::vector<std::tuple<T, T, K, V>> results;
   results.reserve(N_PROF);
 
-  NcVar latsVar, longsVar, dateVar, platformVar, tempVar, depthVar, salinityVar, profileQualityVar, levelsQualityVar;
+  NcVar latsVar, longsVar, dateVar, platformVar, tempVar, depthVar, salinityVar, profileQualityVar, levelsQualityVar, positionQualityVar, tempQualityVar;
   latsVar = datafile.getVar("LATITUDE");
   longsVar = datafile.getVar("LONGITUDE");
   dateVar = datafile.getVar("JULD");
@@ -49,9 +50,13 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
 
   profileQualityVar = datafile.getVar("QC_FLAGS_PROFILES");
   levelsQualityVar = datafile.getVar("QC_FLAGS_LEVELS");
+  positionQualityVar = datafile.getVar("POSITION_QC");
+  tempQualityVar = datafile.getVar("PROFILE_POTM_QC");
 
-  std::vector<T> lats(latsVar.getDim(0).getSize(), 0), lons(longsVar.getDim(0).getSize(), 0);
-  std::vector<K> dates(dateVar.getDim(0).getSize(), 0);
+
+
+  std::vector<double_t> lats(latsVar.getDim(0).getSize(), 0), lons(longsVar.getDim(0).getSize(), 0);
+  std::vector<double_t> dates(dateVar.getDim(0).getSize(), 0);
 
   if (tempVar.isNull() || depthVar.isNull() || salinityVar.isNull())
   {
@@ -69,9 +74,17 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
     try
     {
       uint32_t profile_qc;
-      profileQualityVar.getVar(std::vector<size_t>{i}, &profile_qc);
+      
+      char position_qc = 0;
+      char potm_qc = 0;
 
-      if (profile_qc != 0)
+      profileQualityVar.getVar(std::vector<size_t>{i}, &profile_qc);
+      positionQualityVar.getVar(std::vector<size_t>{i}, &position_qc);
+      tempQualityVar.getVar(std::vector<size_t>{i}, &potm_qc);
+
+
+
+      if ((profile_qc & 0b11) != 0 || position_qc == 4 || potm_qc == 4)
       {
         //std::cerr << "Rejected profile " << i << " with code " << profile_qc << std::endl;
         continue;
@@ -83,11 +96,12 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
       break;
     }
 
-    double_t lat = lats[i], lon = lons[i], date = dates[i];
+    T lat = lats[i], lon = lons[i];
+    K date = dates[i];
 
-    std::vector<double_t> tempIn(tempVar.getDim(0).getSize(), std::nan("nodata"));
-    std::vector<double_t> salIn(salinityVar.getDim(0).getSize(), std::nan("nodata"));
-    std::vector<double_t> depthIn(depthVar.getDim(0).getSize(), std::nan("nodata"));
+    std::vector<float_t> tempIn(tempVar.getDim(0).getSize(), std::nan("nodata"));
+    std::vector<float_t> salIn(salinityVar.getDim(0).getSize(), std::nan("nodata"));
+    std::vector<float_t> depthIn(depthVar.getDim(0).getSize(), std::nan("nodata"));
     std::vector<uint32_t> levelQC(levelsQualityVar.getDim(0).getSize(), std::nan("nodata"));
 
     std::vector<double_t> actual_depths, actual_temperatures;
@@ -119,12 +133,12 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
 
     for (std::size_t j = 0; j < N_LEVELS; j++)
     {
-      if (levelQC[j] != 0)
+      if ((levelQC[j] & 0b11) != 0)
         continue;
       speed_of_sound_vec.push_back(speed_of_sound::speed_of_sound(
-          speed_of_sound::pressure_at_depth(depthIn[j], lat),
-          tempIn[j], salIn[j]));
-      actual_depths.push_back(depthIn[j]);
+          speed_of_sound::pressure_at_depth((double_t) depthIn[j], lat),
+          (double_t) tempIn[j], (double_t) salIn[j]));
+      actual_depths.push_back((double_t) depthIn[j]);
 	  
 	  actual_temperatures.push_back(tempIn[j]);
     }
@@ -137,7 +151,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
     try
     {
       auto xmin = fit::find_SOFAR_channel(speed_of_sound_vec, actual_depths);
-	  auto tavg = std::accumulate(actual_temperatures.begin(), actual_temperatures.end(), (double_t) 0)/ ((double_t) actual_temperatures.size());
+	  auto tavg = actual_temperatures[0];
 #pragma omp critical
       {
 /*
@@ -148,7 +162,8 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
            << filename << "'\n"
            << "set key off\n";
         grapher::plot_lines(gp, actual_depths, speed_of_sound_vec); */
-		const V result{xmin, tavg};
+		const V result{xmin};
+
         results.push_back(std::tie(lon, lat, date, result));
       }
     }
@@ -163,8 +178,8 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
 
 int main(int argc, char *argv[])
 {
-  typedef std::tuple<double_t, double_t> value_t;
-  typedef oQTM_Mesh<double_t, double_t, value_t, 10> mesh_t;
+  typedef double_t value_t;
+  typedef oQTM_Mesh<double_t, uint64_t, value_t, 10> mesh_t;
   /*if (argc == 1 || !fs::is_directory(argv[1]))
   {
     std::cout << "Please pass a directory or filename to the programme" << std::endl;
@@ -182,7 +197,7 @@ int main(int argc, char *argv[])
     auto path = paths[i];
     if (/*fs::is_regular_file(path) && */path.path().extension() == ".nc")
     {
-      auto points = read_to_tree<double_t, double_t, value_t> (path);
+      auto points = read_to_tree<double_t, uint64_t, value_t> (path);
 //#pragma omp task
       {
         globemesh.insert(points);
@@ -198,7 +213,7 @@ int main(int argc, char *argv[])
 
   for (auto position: locations) {
 	  auto loc = globemesh.location(position.first, position.second);
-  auto a = globemesh.get_points(std::vector<size_t>(loc.begin(), loc.begin()+8));
+  auto a = globemesh.get_averaged_points(loc, 7);
 	std::stringstream filename;
 	fs::create_directory("output");
 	filename << "output/";
@@ -207,11 +222,11 @@ int main(int argc, char *argv[])
 	filename << "results.csv";
 
 	std::ofstream fileout(filename.str());
-  	fileout << std::fixed << std::setprecision(8);
+  fileout << "days since 1950-01-01,speed of sound minimum depth (m)" << std::endl;
 	for (auto i : a)
 		{
-			fileout << i.first << "," << std::get<0>(i.second) << "," << std::get<1>(i.second) << std::endl;
-		
+			fileout << i.first << "," << i.second << std::endl;
+
   	}
 	fileout.close();
   }
