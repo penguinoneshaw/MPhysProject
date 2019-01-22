@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
   }*/
 
   mesh_t globemesh;
-
+  if (argc == 1) exit(1);
   auto dirs = fs::directory_iterator(argv[1]);
   
   std::vector<fs::directory_entry> paths(fs::begin(dirs), fs::end(dirs));
@@ -205,9 +205,15 @@ int main(int argc, char *argv[])
     }
   }
 
+  std::cout<< "[INFO]: Interpolation complete" << std::endl;
+
   std::vector<std::pair<double_t, double_t>> locations {
-  	{-40.671851, 33.792983},
-		{3.343785, 56.3836}
+  	{-40.671851, 33.792983}, // Atlantic
+		{3.343785, 56.3836}, // North Sea
+    {18.179810, 35.013669}, // Mediterranean
+    {79.738750, -21.668352}, // Indian Ocean
+    {18.179806, 35.013667}, // Bay of Bengal
+    {114.008616, 15.425780} // South China Sea
   };
 
 
@@ -220,13 +226,12 @@ int main(int argc, char *argv[])
  		
 	for (auto i: loc) filename << (int) i << '.';
 	filename << "results.csv";
-
+  std::cout << filename.str() << std::endl;
 	std::ofstream fileout(filename.str());
   fileout << "days since 1950-01-01,speed of sound minimum depth (m)" << std::endl;
 	for (auto i : a)
 		{
 			fileout << i.first << "," << i.second << std::endl;
-
   	}
 	fileout.close();
   }
