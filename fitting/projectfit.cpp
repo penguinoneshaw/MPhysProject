@@ -116,31 +116,33 @@ template std::vector<float_t> moving_average(const std::vector<float_t> &vector,
 template <typename T>
 T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths)
 {
-  /**
-  Chisquared fcn(depths, speed_of_sound);
-    ROOT::Minuit2::MnUserParameters upar;
-    upar.Add("c_0", depths[0], 1);
-    upar.Add("c_1", 0, 1);
-    upar.Add("c_2", 0, 1);
-
-    ROOT::Minuit2::MnMigrad migrad(fcn, upar);
-    ROOT::Minuit2::FunctionMinimum min = migrad();
-
-    auto minCoeff = min.UserParameters().Params();
-    auto xmin = -minCoeff[1] / (2 * minCoeff[2]);
-    if (xmin > *(depths.end()) || xmin < *(depths.begin()) || isnan(xmin))
-      throw std::runtime_error("out of region");
-    */
-
   auto avg_sos = moving_average(speed_of_sound);
-  auto avg_depth = moving_average(depths);
-  auto minmax = std::minmax_element(avg_sos.begin(), avg_sos.end());
-  
+  auto avg_depths = moving_average(depths);
+  auto minel = std::min_element(avg_sos.begin(), avg_sos.end());
+  auto max = std::max_element(avg_sos.begin(), minel);
+
+  Chisquared fcn(std::vector<double_t>(std::begin(avg_depths) + std::distance(avg_sos.begin(), max), std::end(avg_depths)), std::vector<double_t>(max, avg_sos.end()));
+  ROOT::Minuit2::MnUserParameters upar;
+  upar.Add("c_0", depths[0], 1);
+  upar.Add("c_1", 0, 1);
+  upar.Add("c_2", 0, 1);
+
+  ROOT::Minuit2::MnMigrad migrad(fcn, upar);
+  ROOT::Minuit2::FunctionMinimum min = migrad();
+
+  auto minCoeff = min.UserParameters().Params();
+  auto xmin = -minCoeff[1] / (2 * minCoeff[2]);
+  if (xmin > *(depths.end()) || xmin < *(depths.begin()) || isnan(xmin)){
+    throw std::runtime_error("out of region");} else {
+      return xmin;
+    }
+  /*
   if (minmax.first == std::end(avg_sos)) {
     throw std::runtime_error("out of region");
   } else {
     return avg_depth[std::distance(std::begin(avg_sos), minmax.first)];
   }
+  */
 }
 
 template double_t find_SOFAR_channel(const std::vector<double_t> &speed_of_sound, const std::vector<double_t> &depths);
@@ -200,6 +202,6 @@ Chisquared::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min)
   std::vector<double> result(this->depths);
   auto par = min.UserState().Params();
   std::transform(result.begin(), result.end(), result.begin(),
-                 [&par](double d) { return polynomial_fit(par, d); });
+                [&par](double d) { return polynomial_fit(par, d); });
   return result;
 }

@@ -120,12 +120,12 @@ class oQTM_Mesh
       throw beyondTreeError;
     
     std::map<K, V> result;
+    std::map<K, uint64_t> count;
     for (auto &element: get_points(location, granularity)) {
       try {
         auto curr = result.at(element.first);
-        result[element.first] = (curr + element.second) / 2.0;
-
-
+        auto curr_count = ++count[element.first];
+        result[element.first] = (curr * ((V) (curr_count - 1)) + element.second) / ((V) curr_count);
       } catch (std::out_of_range err) {
         result[element.first] = element.second;
       }

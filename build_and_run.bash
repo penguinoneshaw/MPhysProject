@@ -1,6 +1,9 @@
 #!/bin/bash
 cd build;
-cmake3 --build . --config Debug;
+cmake3 --build . --config Release || exit(1);
 cd ..;
-mv output output_prev
-nohup build/ProjectModelling data;
+stat output && mv output output_prev;
+build/ProjectModelling data || exit(1);
+tar czf output.tar.gz output
+echo "Results from data run done `date`" | mail -a output.tar.gz -s "project run complete" s1410767
+exit(0);
