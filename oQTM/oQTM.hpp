@@ -31,15 +31,44 @@ private:
 
 public:
   oQTM_Quadrant(std::size_t _depth = 1) : depth{_depth} {};
+
+  oQTM_Quadrant(const subtree &quadrant)
+  {
+    if (quadrant.is_datalayer())
+    {
+      this->data = quadrant.get_data();
+    }
+    else
+    {
+      auto quad_subtrees = quadrant.get_subtrees();
+      for (std::size_t i; i < 4; i++)
+      {
+        if (quad_subtrees[i])
+        {
+          this->subtrees[i] = oQTM_Quadrant(*quad_subtrees[i]);
+        }
+      }
+    }
+  };
   ~oQTM_Quadrant(){};
 
-  void add_to_data(K key, V value) {
+  const std::array<subtree_ptr, 4> get_subtrees()
+  {
+    return subtrees;
+  }
+
+  bool is_datalayer() const
+  {
+    return depth == N_LEVELS;
+  }
+  void add_to_data(K key, V value)
+  {
     data.insert(std::pair(key, value));
   }
 
   const std::multimap<K, V> get_data()
   {
-    if (depth == N_LEVELS)
+    if (is_datalayer())
     {
       return data;
     }
@@ -86,26 +115,40 @@ public:
 template <typename T, typename K, typename V, std::size_t N_LEVELS>
 class oQTM_Mesh
 {
-  private:
+private:
   typedef oQTM_Quadrant<K, V, N_LEVELS> octant;
   typedef std::shared_ptr<octant> quad_ptr;
-  std::array<quad_ptr, 8> quadrants;
+  std::array<quad_ptr, 8> octants;
   std::mutex write_mutex;
 
-  public:
+public:
   oQTM_Mesh(){};
+
+  oQTM_Mesh(const oQTM_Mesh<T, K, V, N_LEVELS> &mesh)
+  {
+    for (std::size_t i = 0; i < 8; i++)
+    {
+      if (mesh.get_subtree_without_creating(i))
+      {
+        this->octants[i] = octant(*mesh.get_subtree_without_creating(i));
+      }
+    }
+  }
+
   ~oQTM_Mesh(){};
   typedef std::array<uint8_t, N_LEVELS> location_t;
 
   std::shared_ptr<octant> operator[](std::size_t i)
   {
-    if (!quadrants[i])
-      quadrants[i] = std::make_shared<octant>();
-    return quadrants[i];
+    if (!octants[i])
+      octants[i] = std::make_shared<octant>();
+    return octants[i];
   }
 
-
-
+  inline const quad_ptr &get_subtree_without_creating(std::size_t i)
+  {
+    return octants[i];
+  }
 
   std::multimap<K, V> get_points(location_t location, std::size_t granularity = N_LEVELS)
   {
@@ -115,18 +158,23 @@ class oQTM_Mesh
     return operator[](*begin)->get_points(begin + 1, granularity < N_LEVELS ? location.begin() + granularity : location.end());
   }
 
-  std::map<K, V> get_averaged_points(location_t location, std::size_t granularity = N_LEVELS){
+  std::map<K, V> get_averaged_points(location_t location, std::size_t granularity = N_LEVELS)
+  {
     if (location.size() > N_LEVELS)
       throw beyondTreeError;
-    
+
     std::map<K, V> result;
     std::map<K, uint64_t> count;
-    for (auto &element: get_points(location, granularity)) {
-      try {
+    for (auto &element : get_points(location, granularity))
+    {
+      try
+      {
         auto curr = result.at(element.first);
         auto curr_count = ++count[element.first];
-        result[element.first] = (curr * ((V) (curr_count - 1)) + element.second) / ((V) curr_count);
-      } catch (std::out_of_range err) {
+        result[element.first] = (curr * ((V)(curr_count - 1)) + element.second) / ((V)curr_count);
+      }
+      catch (std::out_of_range err)
+      {
         result[element.first] = element.second;
       }
     }
@@ -229,21 +277,25 @@ class oQTM_Mesh
     return location;
   }
 
-  const location_t insert(T lon, T lat, K key, V value){
+  const location_t insert(T lon, T lat, K key, V value)
+  {
     auto loc = location(lon, lat);
     this->insert(loc, key, value);
     return loc;
   }
 
-  void insert(location_t location, K key, V value){
+  void insert(location_t location, K key, V value)
+  {
     std::shared_ptr<octant> quad = operator[](location[0]);
-    for (auto it = location.begin() + 1; it != location.end(); it++){
+    for (auto it = location.begin() + 1; it != location.end(); it++)
+    {
       quad = (*quad)[*it];
     }
     quad->add_to_data(key, value);
   }
 
-  void insert(const std::vector<std::tuple<T, T, K, V>> locations){
+  void insert(const std::vector<std::tuple<T, T, K, V>> locations)
+  {
     std::lock_guard lock(write_mutex);
     std::for_each(locations.begin(), locations.end(), [=](const std::tuple<T, T, K, V> &point) -> void {
       auto [lon, lat, key, value] = point;
