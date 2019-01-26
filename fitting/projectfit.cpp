@@ -54,7 +54,7 @@ std::vector<float> low_pass_filter(const std::vector<float> &vector,
 }
 
 std::vector<double_t> low_pass_filter(const std::vector<double_t> &vector,
-                                   const std::size_t cutoff)
+                                      const std::size_t cutoff)
 {
   std::vector<double_t> in(vector);
   double average = std::accumulate(in.begin(), in.end(), 0) / in.size();
@@ -101,8 +101,8 @@ std::vector<T> moving_average(const std::vector<T> &vector,
   for (auto it = std::begin(vector); it + period < std::end(vector); ++it)
   {
     output.push_back(std::accumulate(it,
-                                it + period, (T) 0) /
-                static_cast<T>(period));
+                                     it + period, (T)0) /
+                     static_cast<T>(period));
   }
   output.shrink_to_fit();
   return output;
@@ -118,10 +118,37 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
 {
   auto avg_sos = moving_average(speed_of_sound);
   auto avg_depths = moving_average(depths);
-  auto minel = std::min_element(avg_sos.begin(), avg_sos.end());
-  auto max = std::max_element(avg_sos.begin(), minel);
 
-  Chisquared fcn(std::vector<double_t>(std::begin(avg_depths) + std::distance(avg_sos.begin(), max), std::end(avg_depths)), std::vector<double_t>(max, avg_sos.end()));
+  auto differentiate = [](const std::vector<T> &xs, const std::vector<T> &ys) {
+    std::vector<T> result(ys.size(), 0), dxs(xs.size(), 0);
+    std::adjacent_difference(ys.begin(), ys.end(), result.begin());
+    std::adjacent_difference(xs.begin(), xs.end(), result.begin());
+    for (size_t i = 0; i < result.size() && i < dxs.size(); i++)
+    {
+      result[i] = result[i] / dxs[i];
+    }
+
+    return result;
+  };
+
+  auto diff_avg_sos = differentiate(avg_depths, avg_sos);
+  auto diff_diff_avg_sos = differentiate(avg_depths, diff_avg_sos);
+
+  T xmin = 0;
+
+  for (auto it = diff_avg_sos.begin(); it != diff_avg_sos.end(); it++) {
+    if (std::abs(*it) < 1e-7){
+      if (diff_diff_avg_sos[std::distance(diff_avg_sos.begin(), it)] > 0) {
+        xmin = avg_depths[std::distance(diff_avg_sos.begin(), it)];
+      } else {
+        xmin = 0;
+      }
+    }
+  }
+
+  /*
+  if (avg_sos.end())
+    Chisquared fcn(std::vector<double_t>(std::begin(avg_depths) + std::distance(avg_sos.begin(), max), std::end(avg_depths)), std::vector<double_t>(max, avg_sos.end()));
   ROOT::Minuit2::MnUserParameters upar;
   upar.Add("c_0", depths[0], 1);
   upar.Add("c_1", 0, 1);
@@ -132,17 +159,21 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
 
   auto minCoeff = min.UserParameters().Params();
   auto xmin = -minCoeff[1] / (2 * minCoeff[2]);
-  if (xmin > *(depths.end()) || xmin < *(depths.begin()) || isnan(xmin)){
-    throw std::runtime_error("out of region");} else {
-      return xmin;
-    }
-  /*
-  if (minmax.first == std::end(avg_sos)) {
+  if (xmin > *(depths.end()) || xmin < *(depths.begin()) || isnan(xmin))
+  {
     throw std::runtime_error("out of region");
-  } else {
-    return avg_depth[std::distance(std::begin(avg_sos), minmax.first)];
+  }
+  else
+  {
+    return xmin;
   }
   */
+  if (xmin == 0) {
+    throw std::runtime_error("out of region");
+  } else {
+    return xmin;
+  }
+  
 }
 
 template double_t find_SOFAR_channel(const std::vector<double_t> &speed_of_sound, const std::vector<double_t> &depths);
@@ -202,6 +233,6 @@ Chisquared::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min)
   std::vector<double> result(this->depths);
   auto par = min.UserState().Params();
   std::transform(result.begin(), result.end(), result.begin(),
-                [&par](double d) { return polynomial_fit(par, d); });
+                 [&par](double d) { return polynomial_fit(par, d); });
   return result;
 }
