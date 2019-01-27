@@ -8,7 +8,7 @@
 
 namespace fit {
   std::vector<float> low_pass_filter(const std::vector<float> &vector, const std::size_t cutoff = 15);
-  template <typename T> std::vector<T> moving_average(const std::vector<T> &vector, const std::size_t period = 10);
+  template <typename T> std::tuple<std::vector<T>, std::vector<T>> moving_average(const std::vector<T> &vector, const std::size_t period = 10);
   template <typename T> T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths);
 }
 
@@ -17,9 +17,10 @@ class Chisquared : public ROOT::Minuit2::FCNBase
 private:
   std::vector<double> depths;
   std::vector<double> speed_of_sound;
+  std::vector<double> errors;
 
 public:
-  Chisquared(std::vector<double> depths, std::vector<double> speed_of_sound) : depths{depths}, speed_of_sound{speed_of_sound} {};
+  Chisquared(std::vector<double> depths, std::vector<double> speed_of_sound, std::vector<double> errors) : depths{depths}, speed_of_sound{speed_of_sound}, errors{errors} {};
   ~Chisquared(){};
 
   double operator()(const std::vector<double> &par) const;

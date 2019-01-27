@@ -93,31 +93,36 @@ std::vector<double_t> low_pass_filter(const std::vector<double_t> &vector,
 }
 
 template <typename T>
-std::vector<T> moving_average(const std::vector<T> &vector,
+std::tuple<std::vector<T>, std::vector<T>> moving_average(const std::vector<T> &vector,
                               const std::size_t period)
 {
   std::vector<T> output;
   output.reserve(vector.size());
+  std::vector<T> errors;
+  errors.reserve(vector.size());
   for (auto it = std::begin(vector); it + period < std::end(vector); ++it)
   {
     output.push_back(std::accumulate(it,
                                      it + period, (T)0) /
                      static_cast<T>(period));
+    errors.push_back(std::accumulate(it,
+                                     it + period, (T)0, [&output](auto a, auto b) { return a + (b - output.back())*(b - output.back());})/(T) (period - 1)) ;
+    
   }
   output.shrink_to_fit();
-  return output;
+  return std::tie(output, errors);
 }
 
-template std::vector<double_t>
+template std::tuple<std::vector<double_t>, std::vector<double_t>>
 moving_average(const std::vector<double_t> &vector, const std::size_t period);
 
-template std::vector<float_t> moving_average(const std::vector<float_t> &vector, const std::size_t period);
+template std::tuple<std::vector<float_t>, std::vector<float_t>> moving_average(const std::vector<float_t> &vector, const std::size_t period);
 
 template <typename T>
 T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths)
 {
-  auto avg_sos = moving_average(speed_of_sound);
-  auto avg_depths = moving_average(depths);
+  auto [avg_sos, sos_errors] = moving_average(speed_of_sound);
+  auto [avg_depths, depths_errors] = moving_average(depths);
 
   auto differentiate = [](const std::vector<T> &xs, const std::vector<T> &ys) {
     std::vector<T> result(ys.size(), 0), dxs(xs.size(), 0);
@@ -132,23 +137,24 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
   };
 
   auto diff_avg_sos = differentiate(avg_depths, avg_sos);
-  auto diff_diff_avg_sos = differentiate(avg_depths, diff_avg_sos);
 
-  T xmin = 0;
+  std::vector<size_t> maxima{0};
+  if (diff_avg_sos.size() < 10) {
+    throw std::runtime_error("NOT ENOUGH DATA");
+  }
 
-  for (auto it = diff_avg_sos.begin(); it != diff_avg_sos.end(); it++) {
-    if (std::abs(*it) < 1e-7){
-      if (diff_diff_avg_sos[std::distance(diff_avg_sos.begin(), it)] > 0) {
-        xmin = avg_depths[std::distance(diff_avg_sos.begin(), it)];
-      } else {
-        xmin = 0;
-      }
+  for (auto it = diff_avg_sos.begin() + 1; it != diff_avg_sos.end(); ++it) {
+    if (*(it - 1) > 0 && *it <= 0 ) {
+      maxima.push_back(std::distance(diff_avg_sos.begin(), it));
     }
   }
 
-  /*
-  if (avg_sos.end())
-    Chisquared fcn(std::vector<double_t>(std::begin(avg_depths) + std::distance(avg_sos.begin(), max), std::end(avg_depths)), std::vector<double_t>(max, avg_sos.end()));
+  std::size_t endindex = maxima.back() == avg_sos.size() ? 0 : maxima.back();
+
+  auto chisquared_depths = std::vector<double_t>(std::begin(avg_depths) + endindex, avg_depths.end());
+  auto chisquared_sos = std::vector<double_t>(std::begin(avg_sos) + endindex, avg_sos.end());
+  auto chisquared_errors = std::vector<double_t>(std::begin(sos_errors) + endindex, sos_errors.end());
+  Chisquared fcn(chisquared_depths, chisquared_sos, chisquared_errors);
   ROOT::Minuit2::MnUserParameters upar;
   upar.Add("c_0", depths[0], 1);
   upar.Add("c_1", 0, 1);
@@ -159,7 +165,7 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
 
   auto minCoeff = min.UserParameters().Params();
   auto xmin = -minCoeff[1] / (2 * minCoeff[2]);
-  if (xmin > *(depths.end()) || xmin < *(depths.begin()) || isnan(xmin))
+  if (!min.IsValid() || xmin > *(depths.end()) || xmin < *(depths.begin()) || isnan(xmin))
   {
     throw std::runtime_error("out of region");
   }
@@ -167,13 +173,6 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
   {
     return xmin;
   }
-  */
-  if (xmin == 0) {
-    throw std::runtime_error("out of region");
-  } else {
-    return xmin;
-  }
-  
 }
 
 template double_t find_SOFAR_channel(const std::vector<double_t> &speed_of_sound, const std::vector<double_t> &depths);
@@ -222,7 +221,7 @@ double Chisquared::operator()(const std::vector<double> &par) const
 
   for (std::size_t i = 0; i < depths.size(); i++)
   {
-    result += std::pow(fitted_speeds[i] - speed_of_sound[i], 2);
+    result += std::pow(fitted_speeds[i] - speed_of_sound[i], 2)/this->errors[i];
   }
   return result;
 }

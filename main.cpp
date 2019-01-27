@@ -111,7 +111,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
     speed_of_sound_vec.reserve(N_LEVELS);
 	actual_temperatures.reserve(N_LEVELS);
     std::vector<std::size_t> start{i, 0};
-    std::vector<std::size_t> count{1, N_LEVELS};
+    std::vector<std::size_t> count{1, tempVar.getDim(1).getSize()};
 
     try
     {
@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
 
   for (auto position: locations) {
 	  auto loc = globemesh.location(position.first, position.second);
-  auto a = globemesh.get_averaged_points(loc, 7);
+  auto a = globemesh.get_averaged_points(loc, 4);
 	std::stringstream filename;
 	fs::create_directory("output");
 	filename << "output/";
