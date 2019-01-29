@@ -53,8 +53,6 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
   positionQualityVar = datafile.getVar("POSITION_QC");
   tempQualityVar = datafile.getVar("PROFILE_POTM_QC");
 
-
-
   std::vector<double_t> lats(latsVar.getDim(0).getSize(), 0), lons(longsVar.getDim(0).getSize(), 0);
   std::vector<double_t> dates(dateVar.getDim(0).getSize(), 0);
 
@@ -74,15 +72,13 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
     try
     {
       uint32_t profile_qc;
-      
+
       char position_qc = 0;
       char potm_qc = 0;
 
       profileQualityVar.getVar(std::vector<size_t>{i}, &profile_qc);
       positionQualityVar.getVar(std::vector<size_t>{i}, &position_qc);
       tempQualityVar.getVar(std::vector<size_t>{i}, &potm_qc);
-
-
 
       if ((profile_qc & 0b11) != 0 || position_qc == 4 || potm_qc == 4)
       {
@@ -109,7 +105,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
 
     actual_depths.reserve(N_LEVELS);
     speed_of_sound_vec.reserve(N_LEVELS);
-	actual_temperatures.reserve(N_LEVELS);
+    actual_temperatures.reserve(N_LEVELS);
     std::vector<std::size_t> start{i, 0};
     std::vector<std::size_t> count{1, tempVar.getDim(1).getSize()};
 
@@ -135,12 +131,13 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
     {
       if ((levelQC[j] & 0b11) != 0)
         continue;
-      speed_of_sound_vec.push_back(speed_of_sound::speed_of_sound(
-          speed_of_sound::pressure_at_depth((double_t) depthIn[j], lat),
-          (double_t) tempIn[j], (double_t) salIn[j]));
-      actual_depths.push_back((double_t) depthIn[j]);
-	  
-	  actual_temperatures.push_back(tempIn[j]);
+      auto s = speed_of_sound::speed_of_sound(
+          speed_of_sound::pressure_at_depth((double_t)depthIn[j], lat),
+          (double_t)tempIn[j], (double_t)salIn[j]);
+      if (!0 < s || !s < 2000) continue;
+      speed_of_sound_vec.push_back(s);
+      actual_depths.push_back((double_t)depthIn[j]);
+      actual_temperatures.push_back(tempIn[j]);
     }
 
     if (actual_depths.size() < 10)
@@ -151,10 +148,11 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
     try
     {
       auto xmin = fit::find_SOFAR_channel(speed_of_sound_vec, actual_depths);
-	  auto tavg = actual_temperatures[0];
+      if (xmin > actual_depths.back()) continue;
+      auto tavg = actual_temperatures[0];
 #pragma omp critical
       {
-/*
+        /*
         std::string filename = "images/" + std::to_string(date) + "." + std::to_string(i) + ".eps";
         Gnuplot gp;
         gp << "set terminal postscript enhanced eps color size 3,3\n"
@@ -162,7 +160,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
            << filename << "'\n"
            << "set key off\n";
         grapher::plot_lines(gp, actual_depths, speed_of_sound_vec); */
-		const V result{xmin};
+        const V result{xmin};
 
         results.push_back(std::tie(lon, lat, date, result));
       }
@@ -187,52 +185,55 @@ int main(int argc, char *argv[])
   }*/
 
   mesh_t globemesh;
-  if (argc == 1) exit(1);
+  if (argc == 1)
+    exit(1);
   auto dirs = fs::directory_iterator(argv[1]);
-  
+
   std::vector<fs::directory_entry> paths(fs::begin(dirs), fs::end(dirs));
   //#pragma omp parallel
   for (std::size_t i = 0; i < paths.size(); i++)
   {
     auto path = paths[i];
-    if (/*fs::is_regular_file(path) && */path.path().extension() == ".nc")
+    if (/*fs::is_regular_file(path) && */ path.path().extension() == ".nc")
     {
-      auto points = read_to_tree<double_t, uint64_t, value_t> (path);
-//#pragma omp task
+      auto points = read_to_tree<double_t, uint64_t, value_t>(path);
+      //#pragma omp task
       {
         globemesh.insert(points);
       }
     }
   }
 
-  std::cout<< "[INFO]: Interpolation complete" << std::endl;
+  std::cout << "[INFO]: Interpolation complete" << std::endl;
 
-  std::vector<std::pair<double_t, double_t>> locations {
-  	{-40.671851, 33.792983}, // Atlantic
-		{3.343785, 56.3836}, // North Sea
-    {18.179810, 35.013669}, // Mediterranean
-    {79.738750, -21.668352}, // Indian Ocean
-    {18.179806, 35.013667}, // Bay of Bengal
-    {114.008616, 15.425780} // South China Sea
+  std::vector<std::pair<double_t, double_t>> locations{
+      {-40.671851, 33.792983}, // Atlantic
+      {3.343785, 56.3836},     // North Sea
+      {18.179810, 35.013669},  // Mediterranean
+      {79.738750, -21.668352}, // Indian Ocean
+      {18.179806, 35.013667},  // Bay of Bengal
+      {114.008616, 15.425780}  // South China Sea
   };
 
+  for (auto position : locations)
+  {
+    auto loc = globemesh.location(position.first, position.second);
+    auto a = globemesh.get_averaged_points(loc, 4);
+    std::stringstream filename;
+    fs::create_directory("output");
+    filename << "output/";
 
-  for (auto position: locations) {
-	  auto loc = globemesh.location(position.first, position.second);
-  auto a = globemesh.get_averaged_points(loc, 4);
-	std::stringstream filename;
-	fs::create_directory("output");
-	filename << "output/";
- 		
-	for (auto i: loc) filename << (int) i << '.';
-	filename << "results.csv";
-  std::cout << filename.str() << std::endl;
-	std::ofstream fileout(filename.str());
-  fileout << "days since 1950-01-01,speed of sound minimum depth (m)" << std::endl;
-	for (auto i : a)
-		{
-			fileout << i.first << "," << i.second << std::endl;
-  	}
-	fileout.close();
+    for (auto i : loc)
+      filename << (int)i << '.';
+    filename << "results.csv";
+    std::cout << filename.str() << std::endl;
+    std::ofstream fileout(filename.str());
+    fileout << "days since 1950-01-01,speed of sound minimum depth (m)" << std::endl;
+    for (auto i : a)
+    {
+      fileout << i.first << "," << i.second << std::endl;
+    }
+    fileout.close();
+    auto power_spectrum = fit::analyse_periodicity(a);
   }
 }

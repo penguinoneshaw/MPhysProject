@@ -18,7 +18,7 @@ std::vector<float> low_pass_filter(const std::vector<float> &vector,
                                    const std::size_t cutoff)
 {
   std::vector<float> in(vector);
-  float average = std::accumulate(in.begin(), in.end(), 0) / in.size();
+  float average = std::accumulate(in.begin(), in.end(), 0) / (float_t) in.size();
   for (auto &i : in)
     i -= average;
 
@@ -94,7 +94,7 @@ std::vector<double_t> low_pass_filter(const std::vector<double_t> &vector,
 
 template <typename T>
 std::tuple<std::vector<T>, std::vector<T>> moving_average(const std::vector<T> &vector,
-                              const std::size_t period)
+                                                          const std::size_t period)
 {
   std::vector<T> output;
   output.reserve(vector.size());
@@ -106,8 +106,8 @@ std::tuple<std::vector<T>, std::vector<T>> moving_average(const std::vector<T> &
                                      it + period, (T)0) /
                      static_cast<T>(period));
     errors.push_back(std::accumulate(it,
-                                     it + period, (T)0, [&output](auto a, auto b) { return a + (b - output.back())*(b - output.back());})/(T) (period - 1)) ;
-    
+                                     it + period, (T)0, [&output](auto a, auto b) { return a + (b - output.back()) * (b - output.back()); }) /
+                     (T)(period - 1));
   }
   output.shrink_to_fit();
   return std::tie(output, errors);
@@ -139,12 +139,15 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
   auto diff_avg_sos = differentiate(avg_depths, avg_sos);
 
   std::vector<size_t> maxima{0};
-  if (diff_avg_sos.size() < 10) {
+  if (diff_avg_sos.size() < 10)
+  {
     throw std::runtime_error("NOT ENOUGH DATA");
   }
 
-  for (auto it = diff_avg_sos.begin() + 1; it != diff_avg_sos.end(); ++it) {
-    if (*(it - 1) > 0 && *it <= 0 ) {
+  for (auto it = diff_avg_sos.begin() + 1; it != diff_avg_sos.end(); ++it)
+  {
+    if (*(it - 1) > 0 && *it <= 0)
+    {
       maxima.push_back(std::distance(diff_avg_sos.begin(), it));
     }
   }
@@ -221,7 +224,7 @@ double Chisquared::operator()(const std::vector<double> &par) const
 
   for (std::size_t i = 0; i < depths.size(); i++)
   {
-    result += std::pow(fitted_speeds[i] - speed_of_sound[i], 2)/this->errors[i];
+    result += std::pow(fitted_speeds[i] - speed_of_sound[i], 2) / this->errors[i];
   }
   return result;
 }
