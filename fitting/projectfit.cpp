@@ -152,14 +152,14 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
     }
   }
 
-  std::size_t endindex = maxima.back() == avg_sos.size() ? 0 : maxima.back();
+  std::size_t endindex = maxima.back() == avg_sos.size() - 1 ? 0 : maxima.back();
 
   auto chisquared_depths = std::vector<double_t>(std::begin(avg_depths) + endindex, avg_depths.end());
   auto chisquared_sos = std::vector<double_t>(std::begin(avg_sos) + endindex, avg_sos.end());
   auto chisquared_errors = std::vector<double_t>(std::begin(sos_errors) + endindex, sos_errors.end());
   Chisquared fcn(chisquared_depths, chisquared_sos, chisquared_errors);
   ROOT::Minuit2::MnUserParameters upar;
-  upar.Add("c_0", depths[0], 1);
+  upar.Add("c_0", depths[0], 1000);
   upar.Add("c_1", 0, 1);
   upar.Add("c_2", 0, 1);
 
@@ -168,7 +168,7 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
 
   auto minCoeff = min.UserParameters().Params();
   auto xmin = -minCoeff[1] / (2 * minCoeff[2]);
-  if (!min.IsValid() || xmin > *(depths.end()) || xmin < *(depths.begin()) || isnan(xmin))
+  if (!min.IsValid() || xmin > *(avg_depths.end()) || xmin < *(avg_depths.begin()) || isnan(xmin))
   {
     throw std::runtime_error("out of region");
   }

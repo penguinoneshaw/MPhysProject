@@ -25,7 +25,7 @@ std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_
 {
   // Assumes integer spaced time series
   std::vector<V> input_vector{};
-  input_vector.reserve(25535);
+  input_vector.reserve(255);
   V avg = std::accumulate(t_series_data.begin(), t_series_data.end(), 0, [](auto a, auto b){return a + b.second;}) / (V) t_series_data.size();
   V var = std::accumulate(t_series_data.begin(), t_series_data.end(), 0, [avg](auto a, auto b){return a + (b.second - avg)*(b.second - avg);})/(V) (t_series_data.size() - 1);
   auto std_dev = std::sqrt(var);
@@ -41,7 +41,7 @@ std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_
     }
     input_vector.push_back((prev->second - avg)/std_dev);
   }
-
+  input_vector.shrink_to_fit();
   std::cout << input_vector.size() << std::endl;
 
   std::vector<double_t> in(input_vector);

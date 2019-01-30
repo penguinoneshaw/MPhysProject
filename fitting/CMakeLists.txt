@@ -1,4 +1,4 @@
-add_library(ProjectFit SHARED projectfit.cpp)
+add_library(ProjectFit STATIC projectfit.cpp)
 
 set_property(TARGET ProjectFit PROPERTY CXX_STANDARD_REQUIRED ON)
 set_property(TARGET ProjectFit PROPERTY CXX_STANDARD 17)

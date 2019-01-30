@@ -122,7 +122,9 @@ private:
   std::mutex write_mutex;
 
 public:
-  oQTM_Mesh(){};
+  oQTM_Mesh(){
+    octants.fill(nullptr);
+  };
 
   oQTM_Mesh(const oQTM_Mesh<T, K, V, N_LEVELS> &mesh)
   {
@@ -171,7 +173,7 @@ public:
       {
         auto curr = result.at(element.first);
         auto curr_count = ++count[element.first];
-        result[element.first] = (curr * ((V)(curr_count - 1)) + element.second) / ((V)curr_count);
+        result[element.first] = (curr * ((V) (curr_count - 1)) + element.second) / ((V)curr_count);
       }
       catch (std::out_of_range err)
       {
@@ -297,7 +299,7 @@ public:
   void insert(const std::vector<std::tuple<T, T, K, V>> locations)
   {
     std::lock_guard lock(write_mutex);
-    std::for_each(locations.begin(), locations.end(), [=](const std::tuple<T, T, K, V> &point) -> void {
+    std::for_each(locations.begin(), locations.end(), [this](const std::tuple<T, T, K, V> &point) -> void {
       auto [lon, lat, key, value] = point;
       this->insert(lon, lat, key, value);
     });

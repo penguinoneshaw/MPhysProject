@@ -38,7 +38,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
   static const std::size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
 
   std::vector<std::tuple<T, T, K, V>> results;
-  results.reserve(N_PROF);
+  //results.reserve(N_PROF);
 
   NcVar latsVar, longsVar, dateVar, platformVar, tempVar, depthVar, salinityVar, profileQualityVar, levelsQualityVar, positionQualityVar, tempQualityVar;
   latsVar = datafile.getVar("LATITUDE");
@@ -104,9 +104,9 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
     std::vector<double_t> actual_depths, actual_temperatures;
     std::vector<double_t> speed_of_sound_vec;
 
-    actual_depths.reserve(N_LEVELS);
-    speed_of_sound_vec.reserve(N_LEVELS);
-    actual_temperatures.reserve(N_LEVELS);
+    //actual_depths.reserve(N_LEVELS);
+    //speed_of_sound_vec.reserve(N_LEVELS);
+    //actual_temperatures.reserve(N_LEVELS);
     std::vector<std::size_t> start{i, 0};
     std::vector<std::size_t> count{1, tempVar.getDim(1).getSize()};
 
@@ -145,6 +145,10 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
     {
       continue;
     };
+
+    //speed_of_sound_vec.shrink_to_fit();
+    //actual_depths.shrink_to_fit();
+    //actual_temperatures.shrink_to_fit();
 
     try
     {
