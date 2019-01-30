@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <numeric>
 #include <vector>
+#include <complex>
 #include <tuple>
 
 #include "boost/filesystem.hpp"
@@ -134,7 +135,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
       auto s = speed_of_sound::speed_of_sound(
           speed_of_sound::pressure_at_depth((double_t)depthIn[j], lat),
           (double_t)tempIn[j], (double_t)salIn[j]);
-      if (!0 < s || !s < 2000) continue;
+      ///if (!0 < s || !s < 2000) continue;
       speed_of_sound_vec.push_back(s);
       actual_depths.push_back((double_t)depthIn[j]);
       actual_temperatures.push_back(tempIn[j]);
@@ -214,19 +215,19 @@ int main(int argc, char *argv[])
       {18.179806, 35.013667},  // Bay of Bengal
       {114.008616, 15.425780}  // South China Sea
   };
-
-  for (auto position : locations)
+    fs::create_directory("output");
+    fs::create_directory("output/power_spectra");
+//#pragma omp parallel for
+  for (std::size_t i = 0; i < locations.size(); i++)
   {
-    auto loc = globemesh.location(position.first, position.second);
+    auto loc = globemesh.location(locations[i].first, locations[i].second);
     auto a = globemesh.get_averaged_points(loc, 4);
     std::stringstream filename;
-    fs::create_directory("output");
     filename << "output/";
 
     for (auto i : loc)
       filename << (int)i << '.';
     filename << "results.csv";
-    std::cout << filename.str() << std::endl;
     std::ofstream fileout(filename.str());
     fileout << "days since 1950-01-01,speed of sound minimum depth (m)" << std::endl;
     for (auto i : a)
@@ -235,5 +236,15 @@ int main(int argc, char *argv[])
     }
     fileout.close();
     auto power_spectrum = fit::analyse_periodicity(a);
+    filename << "output/power_spectra/";
+    for (auto i : loc)
+      filename << (int)i << '.';
+    filename << "results.csv";
+    std::ofstream fileout_ps(filename.str());
+    for (auto i : power_spectrum)
+    {
+      fileout << i.real() << "," << i.imag() << std::endl;
+    }
+    fileout.close();
   }
 }
