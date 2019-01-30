@@ -110,6 +110,7 @@ std::tuple<std::vector<T>, std::vector<T>> moving_average(const std::vector<T> &
                      (T)(period - 1));
   }
   output.shrink_to_fit();
+  errors.shrink_to_fit();
   return std::tie(output, errors);
 }
 
@@ -127,7 +128,7 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
   auto differentiate = [](const std::vector<T> &xs, const std::vector<T> &ys) {
     std::vector<T> result(ys.size(), 0), dxs(xs.size(), 0);
     std::adjacent_difference(ys.begin(), ys.end(), result.begin());
-    std::adjacent_difference(xs.begin(), xs.end(), result.begin());
+    std::adjacent_difference(xs.begin(), xs.end(), dxs.begin());
     for (size_t i = 0; i < result.size() && i < dxs.size(); i++)
     {
       result[i] = result[i] / dxs[i];
@@ -168,13 +169,15 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
 
   auto minCoeff = min.UserParameters().Params();
   auto xmin = -minCoeff[1] / (2 * minCoeff[2]);
-  if (!min.IsValid() || xmin > *(avg_depths.end()) || xmin < *(avg_depths.begin()) || isnan(xmin))
+  //if (!min.IsValid() || xmin > *(avg_depths.end()) || xmin < *(avg_depths.begin()) || std::isnan(xmin))
+
+  if (!min.IsValid() || std::isnan(xmin) || xmin > avg_depths.back() || xmin < avg_depths.front())
   {
     throw std::runtime_error("out of region");
   }
   else
   {
-    return xmin;
+    return (T) xmin;
   }
 }
 
