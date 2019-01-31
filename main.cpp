@@ -135,7 +135,6 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
       auto s = speed_of_sound::speed_of_sound(
           speed_of_sound::pressure_at_depth((double_t)depthIn[j], lat),
           (double_t)tempIn[j], (double_t)salIn[j]);
-      ///if (!0 < s || !s < 2000) continue;
       speed_of_sound_vec.push_back(s);
       actual_depths.push_back((double_t)depthIn[j]);
       actual_temperatures.push_back(tempIn[j]);
@@ -146,9 +145,9 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
       continue;
     };
 
-    //speed_of_sound_vec.shrink_to_fit();
-    //actual_depths.shrink_to_fit();
-    //actual_temperatures.shrink_to_fit();
+    speed_of_sound_vec.shrink_to_fit();
+    actual_depths.shrink_to_fit();
+    actual_temperatures.shrink_to_fit();
 
     try
     {
@@ -247,8 +246,8 @@ int main(int argc, char *argv[])
     std::ofstream fileout_ps(filename.str());
     for (auto i : power_spectrum)
     {
-      fileout << i.real() << "," << i.imag() << std::endl;
+      fileout_ps << i.real() << "," << i.imag() << std::endl;
     }
-    fileout.close();
+    fileout_ps.close();
   }
 }

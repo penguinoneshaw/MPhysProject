@@ -32,8 +32,8 @@ std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_
   auto it = t_series_data.begin();
   auto prev = t_series_data.begin();
   input_vector.push_back((prev->second - avg)/std_dev);
-  for (std::next(it); it != std::end(t_series_data); std::next(it), std::next(prev)) {
-    std::size_t abs_diff = std::abs((int64_t) it->first - (int64_t) prev->first);
+  for (it = std::next(it); it != std::end(t_series_data); it = std::next(it), prev = std::next(prev)) {
+    std::size_t abs_diff = it->first - prev->first;
     if (abs_diff > 1) {
       for (std::size_t i = 0; i < abs_diff; i++) {
         input_vector.push_back(0);
