@@ -42,7 +42,6 @@ std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_
     input_vector.push_back((prev->second - avg)/std_dev);
   }
   input_vector.shrink_to_fit();
-  std::cout << input_vector.size() << std::endl;
 
   std::vector<double_t> in(input_vector);
   double average = std::accumulate(in.begin(), in.end(), 0) / in.size();

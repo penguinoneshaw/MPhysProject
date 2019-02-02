@@ -239,14 +239,45 @@ int main(int argc, char *argv[])
     }
     fileout.close();
     auto power_spectrum = fit::analyse_periodicity(a);
-    filename << "output/power_spectra/";
-    for (auto i : loc)
-      filename << (int)i << '.';
-    filename << "results.csv";
-    std::ofstream fileout_ps(filename.str());
+    std::stringstream filename_ps;
+
+    filename_ps << "output/power_spectra/";
+    for (uint64_t i : loc)
+      filename_ps << (int)i << '.';
+    filename_ps << "results.csv";
+    std::ofstream fileout_ps(filename_ps.str());
     for (auto i : power_spectrum)
     {
       fileout_ps << i.real() << "," << i.imag() << std::endl;
+    }
+    fileout_ps.close();
+  }
+
+  for (uint8_t j = 0; j < 8; j++)
+  {
+    auto loc = mesh_t::location_t{j};
+    auto a = globemesh.get_averaged_points(loc, 1);
+    std::stringstream filename;
+    filename << "output/";
+
+    filename << (std::size_t) j << "-results.csv";
+    std::ofstream fileout(filename.str());
+    fileout << "days since 1950-01-01,speed of sound minimum depth (m)" << std::endl;
+    for (auto i : a)
+    {
+      fileout << i.first << "," << i.second << std::endl;
+    }
+    fileout.close();
+    auto power_spectrum = fit::analyse_periodicity(a);
+    std::stringstream filename_ps;
+
+    filename_ps << "output/power_spectra/";
+    filename_ps << (std::size_t) loc[0] <<".results.csv";
+    std::ofstream fileout_ps(filename_ps.str());
+    for (auto i : power_spectrum)
+    {
+      fileout_ps << i.real() << "," << i.imag() << std::endl;
+
     }
     fileout_ps.close();
   }
