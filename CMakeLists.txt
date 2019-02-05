@@ -5,7 +5,9 @@ add_compile_options(-Wextra -Wnon-virtual-dtor -pedantic)
 
 find_package(OpenMP REQUIRED)
 find_package(Boost REQUIRED COMPONENTS iostreams system filesystem)
-find_package(Minuit2)
+#find_package(Minuit2)
+add_subdirectory(Minuit2)
+
 find_library(NCDFC NAMES netcdf_c++4 netcdf-cxx4)
 find_library(NCDF NAMES netcdf libnetcdf)
 

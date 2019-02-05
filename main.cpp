@@ -61,7 +61,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
   {
     throw std::runtime_error("File format not as expected.");
   }
-#pragma omp critical
+  #pragma omp critical
   {
     latsVar.getVar(lats.data());
     longsVar.getVar(lons.data());
@@ -112,7 +112,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
 
     try
     {
-#pragma omp critical
+  #pragma omp critical
       {
         levelsQualityVar.getVar(start, count, levelQC.data());
         salinityVar.getVar(start, count, salIn.data());
@@ -189,8 +189,10 @@ int main(int argc, char *argv[])
   }*/
 
   mesh_t globemesh;
-  if (argc == 1)
+  if (argc == 1){
+    std::cerr << "No input files directory given." << std::endl;
     exit(1);
+  }
   auto dirs = fs::directory_iterator(argv[1]);
 
   std::vector<fs::directory_entry> paths(fs::begin(dirs), fs::end(dirs));
@@ -243,7 +245,7 @@ int main(int argc, char *argv[])
 
     filename_ps << "output/power_spectra/";
     for (uint64_t i : loc)
-      filename_ps << (int)i << '.';
+      filename_ps << (int) i << '.';
     filename_ps << "results.csv";
     std::ofstream fileout_ps(filename_ps.str());
     for (auto i : power_spectrum)
