@@ -28,7 +28,7 @@
 namespace fs = boost::filesystem;
 
 template <typename T, typename K, typename V>
-std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
+std::tuple<std::vector<std::tuple<T, T, K, V>>, std::vector<std::tuple<T, T, K, V>>> read_to_tree(const fs::path &filepath)
 {
   using namespace netCDF;
 
@@ -38,6 +38,8 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
   static const std::size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
 
   std::vector<std::tuple<T, T, K, V>> results;
+  std::vector<std::tuple<T, T, K, V>> temp_results;
+
   //results.reserve(N_PROF);
 
   NcVar latsVar, longsVar, dateVar, platformVar, tempVar, depthVar, salinityVar, profileQualityVar, levelsQualityVar, positionQualityVar, tempQualityVar;
@@ -61,7 +63,7 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
   {
     throw std::runtime_error("File format not as expected.");
   }
-  #pragma omp critical
+	#pragma omp critical
   {
     latsVar.getVar(lats.data());
     longsVar.getVar(lons.data());
@@ -104,15 +106,15 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
     std::vector<double_t> actual_depths, actual_temperatures;
     std::vector<double_t> speed_of_sound_vec;
 
-    //actual_depths.reserve(N_LEVELS);
-    //speed_of_sound_vec.reserve(N_LEVELS);
-    //actual_temperatures.reserve(N_LEVELS);
+    actual_depths.reserve(N_LEVELS);
+    speed_of_sound_vec.reserve(N_LEVELS);
+    actual_temperatures.reserve(N_LEVELS);
     std::vector<std::size_t> start{i, 0};
     std::vector<std::size_t> count{1, tempVar.getDim(1).getSize()};
 
     try
     {
-  #pragma omp critical
+	#pragma omp critical
       {
         levelsQualityVar.getVar(start, count, levelQC.data());
         salinityVar.getVar(start, count, salIn.data());
@@ -125,8 +127,6 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
       std::cerr << filepath << ": " << e.what() << std::endl;
       break;
     }
-
-    auto no_value = [](double_t s) { return s == 99999 || std::isnan(s); };
 
     for (std::size_t j = 0; j < N_LEVELS; j++)
     {
@@ -152,30 +152,24 @@ std::vector<std::tuple<T, T, K, V>> read_to_tree(const fs::path &filepath)
     try
     {
       auto xmin = fit::find_SOFAR_channel(speed_of_sound_vec, actual_depths);
-      if (xmin > actual_depths.back()) continue;
-      auto tavg = actual_temperatures[0];
-#pragma omp critical
-      {
-        /*
-        std::string filename = "images/" + std::to_string(date) + "." + std::to_string(i) + ".eps";
-        Gnuplot gp;
-        gp << "set terminal postscript enhanced eps color size 3,3\n"
-              "set output '"
-           << filename << "'\n"
-           << "set key off\n";
-        grapher::plot_lines(gp, actual_depths, speed_of_sound_vec); */
-        const V result{xmin};
+      if (xmin > actual_depths.back())
+        continue;
+      auto tmin = actual_temperatures[std::distance(actual_depths.begin(), std::find_if(actual_depths.begin(), actual_depths.end(), [xmin](auto a) { return a > xmin;}))];
 
-        results.push_back(std::tie(lon, lat, date, result));
-      }
+      const V result{xmin};
+      const V result_temp{tmin};
+
+      results.push_back(std::tie(lon, lat, date, result));
+      temp_results.push_back(std::tie(lon, lat, date, result_temp));
     }
     catch (std::runtime_error e)
     {
+      std::cerr << e.what() << std::endl;
       continue;
     }
   }
 
-  return results;
+  return std::tie(results, temp_results);
 }
 
 int main(int argc, char *argv[])
@@ -189,7 +183,10 @@ int main(int argc, char *argv[])
   }*/
 
   mesh_t globemesh;
-  if (argc == 1){
+  mesh_t tempmesh;
+
+  if (argc == 1)
+  {
     std::cerr << "No input files directory given." << std::endl;
     exit(1);
   }
@@ -202,10 +199,11 @@ int main(int argc, char *argv[])
     auto path = paths[i];
     if (/*fs::is_regular_file(path) && */ path.path().extension() == ".nc")
     {
-      auto points = read_to_tree<double_t, uint64_t, value_t>(path);
+      auto [points, temp_points] = read_to_tree<double_t, uint64_t, value_t>(path);
       //#pragma omp task
       {
         globemesh.insert(points);
+        tempmesh.insert(temp_points);
       }
     }
   }
@@ -220,67 +218,112 @@ int main(int argc, char *argv[])
       {18.179806, 35.013667},  // Bay of Bengal
       {114.008616, 15.425780}  // South China Sea
   };
-    fs::create_directory("output");
-    fs::create_directory("output/power_spectra");
-//#pragma omp parallel for
+  fs::create_directory("output");
+  fs::create_directory("output/power_spectra");
+  //#pragma omp parallel for
   for (std::size_t i = 0; i < locations.size(); i++)
   {
     auto loc = globemesh.location(locations[i].first, locations[i].second);
     auto a = globemesh.get_averaged_points(loc, 4);
-    std::stringstream filename;
-    filename << "output/";
+    auto t = tempmesh.get_averaged_points(loc, 4);
 
-    for (auto i : loc)
-      filename << (int)i << '.';
-    filename << "results.csv";
-    std::ofstream fileout(filename.str());
-    fileout << "days since 1950-01-01,speed of sound minimum depth (m)" << std::endl;
-    for (auto i : a)
     {
-      fileout << i.first << "," << i.second << std::endl;
+      std::stringstream filename;
+      filename << "output/";
+
+      for (auto i : loc)
+        filename << (int)i << '.';
+      filename << "results.csv";
+      std::ofstream fileout(filename.str());
+      fileout << "days since 1950-01-01,speed of sound minimum depth (m)" << std::endl;
+      for (auto i : a)
+      {
+        fileout << i.first << "," << i.second << std::endl;
+      }
+      fileout.close();
     }
-    fileout.close();
-    auto power_spectrum = fit::analyse_periodicity(a);
+
+    {
+      std::stringstream filename;
+      filename << "output/";
+
+      for (auto i : loc)
+        filename << (int)i << '.';
+      filename << "results.csv";
+      std::ofstream fileout(filename.str());
+      fileout << "days since 1950-01-01,speed of sound minimum depth (m)" << std::endl;
+      for (auto i : t)
+      {
+        fileout << i.first << "," << i.second << std::endl;
+      }
+      fileout.close();
+    }
+
+    /** auto power_spectrum = fit::analyse_periodicity(a);
     std::stringstream filename_ps;
 
     filename_ps << "output/power_spectra/";
     for (uint64_t i : loc)
-      filename_ps << (int) i << '.';
+      filename_ps << (int)i << '.';
     filename_ps << "results.csv";
     std::ofstream fileout_ps(filename_ps.str());
     for (auto i : power_spectrum)
     {
       fileout_ps << i.real() << "," << i.imag() << std::endl;
     }
-    fileout_ps.close();
+    fileout_ps.close();*/
   }
 
   for (uint8_t j = 0; j < 8; j++)
   {
     auto loc = mesh_t::location_t{j};
     auto a = globemesh.get_averaged_points(loc, 1);
-    std::stringstream filename;
-    filename << "output/";
-
-    filename << (std::size_t) j << "-results.csv";
-    std::ofstream fileout(filename.str());
-    fileout << "days since 1950-01-01,speed of sound minimum depth (m)" << std::endl;
-    for (auto i : a)
+    auto t = tempmesh.get_averaged_points(loc, 1);
     {
-      fileout << i.first << "," << i.second << std::endl;
-    }
-    fileout.close();
-    auto power_spectrum = fit::analyse_periodicity(a);
-    std::stringstream filename_ps;
+      std::stringstream filename;
+      filename << "output/";
 
-    filename_ps << "output/power_spectra/";
-    filename_ps << (std::size_t) loc[0] <<".results.csv";
-    std::ofstream fileout_ps(filename_ps.str());
-    for (auto i : power_spectrum)
+      filename << (std::size_t)j << "-results.csv";
+      std::ofstream fileout(filename.str());
+      fileout << "days since 1950-01-01,speed of sound minimum depth (m)" << std::endl;
+      for (auto i : a)
+      {
+        fileout << i.first << "," << i.second << std::endl;
+      }
+      fileout.close();
+    }
+
     {
-      fileout_ps << i.real() << "," << i.imag() << std::endl;
+      std::stringstream filename;
+      filename << "output/temp-";
 
+      filename << (std::size_t)j << "-results.csv";
+      std::ofstream fileout(filename.str());
+      fileout << "days since 1950-01-01,speed of sound minimum depth (m)" << std::endl;
+      for (auto i : t)
+      {
+        fileout << i.first << "," << i.second << std::endl;
+      }
+      fileout.close();
     }
-    fileout_ps.close();
+
+    /**try
+    {
+      auto power_spectrum = fit::analyse_periodicity(a);
+      std::stringstream filename_ps;
+
+      filename_ps << "output/power_spectra/";
+      filename_ps << (std::size_t)loc[0] << ".results.csv";
+      std::ofstream fileout_ps(filename_ps.str());
+      for (auto i : power_spectrum)
+      {
+        fileout_ps << i.real() << "," << i.imag() << std::endl;
+      }
+      fileout_ps.close();
+    }
+    catch (std::runtime_error e)
+    {
+      continue;
+    } */
   }
 }

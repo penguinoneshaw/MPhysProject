@@ -60,6 +60,7 @@ std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_
     out[i] = std::complex(fft[i][0], fft[i][1]);
   }
   return out;
+  fftw_free(fft);
 }
 } // namespace fit
 
