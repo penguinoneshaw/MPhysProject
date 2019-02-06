@@ -259,7 +259,7 @@ int main(int argc, char *argv[])
       fileout.close();
     }
 
-    /** auto power_spectrum = fit::analyse_periodicity(a);
+    auto power_spectrum = fit::analyse_periodicity(a);
     std::stringstream filename_ps;
 
     filename_ps << "output/power_spectra/";
@@ -271,7 +271,7 @@ int main(int argc, char *argv[])
     {
       fileout_ps << i.real() << "," << i.imag() << std::endl;
     }
-    fileout_ps.close();*/
+    fileout_ps.close();
   }
 
   for (uint8_t j = 0; j < 8; j++)
@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
       fileout.close();
     }
 
-    /**try
+    try
     {
       auto power_spectrum = fit::analyse_periodicity(a);
       std::stringstream filename_ps;
@@ -324,6 +324,6 @@ int main(int argc, char *argv[])
     catch (std::runtime_error e)
     {
       continue;
-    } */
+    }
   }
 }

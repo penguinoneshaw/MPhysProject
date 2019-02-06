@@ -26,20 +26,23 @@ std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_
   // Assumes integer spaced time series
   std::vector<V> input_vector{};
   input_vector.reserve(255);
-  V avg = std::accumulate(t_series_data.begin(), t_series_data.end(), 0, [](auto a, auto b){return a + b.second;}) / (V) t_series_data.size();
-  V var = std::accumulate(t_series_data.begin(), t_series_data.end(), 0, [avg](auto a, auto b){return a + (b.second - avg)*(b.second - avg);})/(V) (t_series_data.size() - 1);
+  V avg = std::accumulate(t_series_data.begin(), t_series_data.end(), 0, [](auto a, auto b) { return a + b.second; }) / (V)t_series_data.size();
+  V var = std::accumulate(t_series_data.begin(), t_series_data.end(), 0, [avg](auto a, auto b) { return a + (b.second - avg) * (b.second - avg); }) / (V)(t_series_data.size() - 1);
   auto std_dev = std::sqrt(var);
   auto it = t_series_data.begin();
   auto prev = t_series_data.begin();
-  input_vector.push_back((prev->second - avg)/std_dev);
-  for (it = std::next(it); it != std::end(t_series_data); it = std::next(it), prev = std::next(prev)) {
+  input_vector.push_back((prev->second - avg) / std_dev);
+  for (it = std::next(it); it != std::end(t_series_data); it = std::next(it), prev = std::next(prev))
+  {
     std::size_t abs_diff = it->first - prev->first;
-    if (abs_diff > 1) {
-      for (std::size_t i = 0; i < abs_diff; i++) {
+    if (abs_diff > 1)
+    {
+      for (std::size_t i = 0; i < abs_diff; i++)
+      {
         input_vector.push_back(0);
       }
     }
-    input_vector.push_back((prev->second - avg)/std_dev);
+    input_vector.push_back((prev->second - avg) / std_dev);
   }
   input_vector.shrink_to_fit();
 
@@ -54,13 +57,13 @@ std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_
       fftw_plan_dft_r2c_1d(in.size(), in.data(), fft, FFTW_ESTIMATE);
   fftw_execute(forward);
   fftw_destroy_plan(forward);
-  std::vector<std::complex<double_t> > out(in.size() / 2 + 1);
+  std::vector<std::complex<double_t>> out(in.size() / 2 + 1);
   for (std::size_t i = 0; i < in.size() / 2 + 1; i++)
   {
     out[i] = std::complex(fft[i][0], fft[i][1]);
   }
-  return out;
   fftw_free(fft);
+  return out;
 }
 } // namespace fit
 
