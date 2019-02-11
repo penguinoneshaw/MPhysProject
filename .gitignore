@@ -47,8 +47,8 @@ build/*
 *.txt
 *.dat
 images/*
-output/
-
+output*/**
+output_prev/**
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json

@@ -50,15 +50,17 @@ std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_
   double average = std::accumulate(in.begin(), in.end(), 0) / in.size();
   for (auto &i : in)
     i -= average;
-
+    
+  const std::size_t FFT_ARRAY_SIZE = (in.size() / 2 + 1);
+  
   fftw_complex *fft =
-      (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * in.size() / 2 + 1);
+      (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * FFT_ARRAY_SIZE);
   fftw_plan forward =
       fftw_plan_dft_r2c_1d(in.size(), in.data(), fft, FFTW_ESTIMATE);
   fftw_execute(forward);
   fftw_destroy_plan(forward);
   std::vector<std::complex<double_t>> out(in.size() / 2 + 1);
-  for (std::size_t i = 0; i < in.size() / 2 + 1; i++)
+  for (std::size_t i = 0; i < FFT_ARRAY_SIZE; i++)
   {
     out[i] = std::complex(fft[i][0], fft[i][1]);
   }

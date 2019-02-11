@@ -21,16 +21,16 @@ std::vector<float> low_pass_filter(const std::vector<float> &vector,
   float average = std::accumulate(in.begin(), in.end(), 0) / (float_t) in.size();
   for (auto &i : in)
     i -= average;
-
+  const std::size_t FFT_ARRAY_SIZE = (in.size() / 2 + 1);
   std::vector<float> out(in.size());
   fftwf_complex *fft =
-      (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * in.size() / 2 + 1);
+      (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * FFT_ARRAY_SIZE);
   fftwf_plan forward =
       fftwf_plan_dft_r2c_1d(in.size(), in.data(), fft, FFTW_ESTIMATE);
   fftwf_execute(forward);
   fftwf_destroy_plan(forward);
 
-  for (std::size_t i = 0; i < in.size() / 2 + 1; i++)
+  for (std::size_t i = 0; i < FFT_ARRAY_SIZE; i++)
   {
     float window =
         1.0 ? i < cutoff
