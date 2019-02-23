@@ -171,7 +171,7 @@ read_to_tree(const fs::path &filepath) {
 
 int main(int argc, char *argv[]) {
   typedef double_t value_t;
-  typedef oQTM_Mesh<double_t, uint64_t, value_t, 10> mesh_t;
+  typedef oQTM_Mesh<double_t, uint64_t, value_t, 4> mesh_t;
   /*if (argc == 1 || !fs::is_directory(argv[1]))
   {
     std::cout << "Please pass a directory or filename to the programme" <<
@@ -255,12 +255,16 @@ int main(int argc, char *argv[]) {
 
       filename_ps << "output/power_spectra/";
       filename_ps << (std::size_t)loc[0] << ".results.csv";
-      std::ofstream fileout_ps(filename_ps.str());
+      std::ofstream fileout(filename_ps.str());
+      std::vector<double_t> absolutes(power_spectrum.size());
+      std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) {return std::abs(a);});
+      auto max = std::max(absolutes.begin(), absolutes.end());
+      fileout << "Real,Imag,Normalised Power,Phase,Power" << std::endl;
       for (auto i : power_spectrum) {
-        fileout_ps << i.real() << "," << i.imag() << "," << std::abs(i) << ","
-                   << std::arg(i) << std::endl;
+        fileout << i.real() << "," << i.imag() << "," << std::abs(i)/ *max << ","
+                   << std::arg(i) << std::abs(i) << std::endl;
       }
-      fileout_ps.close();
+      fileout.close();
     } catch (std::runtime_error e) {
       std::cerr << e.what() << std::endl;
       continue;
@@ -278,7 +282,7 @@ int main(int argc, char *argv[]) {
     for (auto i : loc)
         location_string << (int)i;
 
-    file << location_string.str() << "," << locations[i].second << "," << locations[i].first;
+    file << location_string.str() << "," << locations[i].second << "," << locations[i].first << std::endl;
 
     {
       std::ofstream fileout("output/speed_of_sound/" + location_string.str() + ".sos-results.csv");
@@ -291,7 +295,7 @@ int main(int argc, char *argv[]) {
     }
 
     {
-      std::ofstream fileout("output/speed_of_sound/" + location_string.str() + ".temp-results.csv");
+      std::ofstream fileout("output/temp/" + location_string.str() + ".temp-results.csv");
 
       fileout << "days since 1950-01-01,temperature at minimum" << std::endl;
       for (auto i : t) {
@@ -301,12 +305,14 @@ int main(int argc, char *argv[]) {
     }
     try {
       auto power_spectrum = fit::analyse_periodicity(a);
-      std::ofstream fileout("output/speed_of_sound/" + location_string.str() + ".ps-results.csv");
-
-      fileout << "real,imag,r,theta" << std::endl;
+      std::ofstream fileout("output/power_spectra/" + location_string.str() + ".ps-results.csv");
+      std::vector<double_t> absolutes(power_spectrum.size());
+      std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) {return std::abs(a);});
+      auto max = std::max(absolutes.begin(), absolutes.end());
+      fileout << "Real,Imag,Normalised Power,Phase,Power" << std::endl;
       for (auto i : power_spectrum) {
-        fileout << i.real() << "," << i.imag() << "," << std::abs(i) << ","
-                   << std::arg(i) << std::endl;
+        fileout << i.real() << "," << i.imag() << "," << std::abs(i)/ *max << ","
+                   << std::arg(i) << std::abs(i) << std::endl;
       }
 
       fileout.close();
@@ -317,3 +323,4 @@ int main(int argc, char *argv[]) {
   }
   file.close();
 }
+

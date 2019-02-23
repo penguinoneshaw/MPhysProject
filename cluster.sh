@@ -21,7 +21,7 @@
 # NB: your job will be halted when this time expires, so it is best to slightly
 # over-estimate.
 #
-#$ -l h_rt=24:00:00
+#$ -l h_rt=08:00:00
 
 #$ -pe omp 16
 
