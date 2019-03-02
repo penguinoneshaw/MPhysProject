@@ -160,25 +160,30 @@ public:
     return operator[](*begin)->get_points(begin + 1, granularity < N_LEVELS ? location.begin() + granularity : location.end());
   }
 
-  std::map<K, V> get_averaged_points(location_t location, std::size_t granularity = N_LEVELS)
+  std::map<K, V> get_averaged_points(location_t location, std::size_t spatial_granularity = N_LEVELS, std::size_t temporal_granularity = 1)
   {
     if (location.size() > N_LEVELS)
       throw beyondTreeError;
 
     std::map<K, V> result;
     std::map<K, uint64_t> count;
-    for (auto &element : get_points(location, granularity))
+    for (auto &element : get_points(location, spatial_granularity))
     {
       try
       {
+        K index = std::floor(element.first / temporal_granularity) * temporal_granularity + temporal_granularity / 2;
         auto curr = result.at(element.first);
         auto curr_count = ++count[element.first];
-        result[element.first] = (curr * ((V) (curr_count - 1)) + element.second) / ((V)curr_count);
+        result[element.first] = (curr + element.second);
       }
       catch (std::out_of_range err)
       {
         result[element.first] = element.second;
       }
+    }
+
+    for (auto& element: result) {
+      result[element.first] /= ((V)count[element.first]);
     }
 
     return result;

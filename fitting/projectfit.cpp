@@ -24,7 +24,7 @@ std::vector<float> low_pass_filter(const std::vector<float> &vector,
   const std::size_t FFT_ARRAY_SIZE = (in.size() / 2 + 1);
   std::vector<float> out(in.size());
   fftwf_complex *fft =
-      (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * FFT_ARRAY_SIZE);
+      (fftwf_complex *) fftwf_malloc(sizeof(fftwf_complex) * FFT_ARRAY_SIZE);
   fftwf_plan forward =
       fftwf_plan_dft_r2c_1d(in.size(), in.data(), fft, FFTW_ESTIMATE);
   fftwf_execute(forward);
@@ -120,10 +120,10 @@ moving_average(const std::vector<double_t> &vector, const std::size_t period);
 template std::tuple<std::vector<float_t>, std::vector<float_t>> moving_average(const std::vector<float_t> &vector, const std::size_t period);
 
 template <typename T>
-T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths)
+T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths, std::size_t averaging_granularity)
 {
-  auto [avg_sos, sos_errors] = moving_average(speed_of_sound);
-  auto [avg_depths, depths_errors] = moving_average(depths);
+  auto [avg_sos, sos_errors] = moving_average(speed_of_sound, averaging_granularity);
+  auto [avg_depths, depths_errors] = moving_average(depths, averaging_granularity);
 
   auto differentiate = [](const std::vector<T> &xs, const std::vector<T> &ys) {
     std::vector<T> result(ys.size(), 0), dxs(xs.size(), 0);
@@ -140,7 +140,7 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
   auto diff_avg_sos = differentiate(avg_depths, avg_sos);
 
   std::vector<size_t> maxima{0};
-  if (diff_avg_sos.size() < 10)
+  if (diff_avg_sos.size() < 5)
   {
     throw std::runtime_error("NOT ENOUGH DATA");
   }
@@ -181,7 +181,7 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
   }
 }
 
-template double_t find_SOFAR_channel(const std::vector<double_t> &speed_of_sound, const std::vector<double_t> &depths);
+template double_t find_SOFAR_channel(const std::vector<double_t> &speed_of_sound, const std::vector<double_t> &depths, std::size_t averaging_granularity);
 
 } // namespace fit
 
@@ -211,7 +211,7 @@ double polynomial_fit(const std::vector<double> &par, double d)
   // Uses a cubic fitting function (originally was planned to be quadratic but
   // this way it has the same number of coefficients as the bilinear). Expects
   // par to be in the format (c_i) for i in [0, 3] is the 'position' of the
-  // turning point in the depth-speed plain
+  // turning point in the depth-speed plane
 
   return poly::horners_method(par, d);
 }

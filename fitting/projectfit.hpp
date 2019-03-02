@@ -19,7 +19,7 @@ std::vector<float> low_pass_filter(const std::vector<float> &vector, const std::
 template <typename T>
 std::tuple<std::vector<T>, std::vector<T>> moving_average(const std::vector<T> &vector, const std::size_t period = 10);
 template <typename T>
-T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths);
+T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths, std::size_t averaging_granularity = 10);
 
 template <typename K, typename V>
 std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_data)
@@ -55,7 +55,7 @@ std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_
   const std::size_t FFT_ARRAY_SIZE = (in.size() / 2 + 1);
 
   fftw_complex *fft =
-      (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * FFT_ARRAY_SIZE);
+      (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * FFT_ARRAY_SIZE);
   fftw_plan forward =
       fftw_plan_dft_r2c_1d(in.size(), in.data(), fft, FFTW_ESTIMATE);
   fftw_execute(forward);
@@ -80,7 +80,9 @@ private:
   std::vector<double> errors;
 
 public:
-  Chisquared(std::vector<double> depths, std::vector<double> speed_of_sound, std::vector<double> errors) : depths{depths}, speed_of_sound{speed_of_sound}, errors{errors} {};
+  Chisquared(std::vector<double> depths,
+             std::vector<double> speed_of_sound,
+             std::vector<double> errors) : depths{depths}, speed_of_sound{speed_of_sound}, errors{errors} {};
   ~Chisquared(){};
 
   double operator()(const std::vector<double> &par) const;
