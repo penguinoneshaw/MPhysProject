@@ -3,7 +3,6 @@
 #include <array>
 #include <cmath>
 #include <complex>
-#include <cstdio>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -13,6 +12,8 @@
 #include <stdexcept>
 #include <tuple>
 #include <vector>
+#include <time.h>
+#include <ctime>
 
 #include "boost/filesystem.hpp"
 #include "ncChar.h"
@@ -26,6 +27,8 @@
 #include "speed_of_sound.hpp"
 
 namespace fs = boost::filesystem;
+constexpr int SECONDS_IN_DAY = 24*60*60;
+
 
 template <typename T, typename K, typename V>
 std::tuple<std::vector<std::tuple<T, T, K, V>>,
@@ -67,7 +70,7 @@ read_to_tree(const fs::path &filepath)
   {
     throw std::runtime_error("File format not as expected.");
   }
-#pragma omp critical
+  #pragma omp critical
   {
     latsVar.getVar(lats.data());
     longsVar.getVar(lons.data());
@@ -139,7 +142,7 @@ read_to_tree(const fs::path &filepath)
 
     for (std::size_t j = 0; j < N_LEVELS; j++)
     {
-      if ((levelQC[j] & 0b11) != 0)
+      if ((levelQC[j] & 0b11) != 0 || std::isnan(levelQC[j]))
         continue;
       auto s = speed_of_sound::speed_of_sound(
           speed_of_sound::pressure_at_depth((double_t)depthIn[j], lat),
@@ -226,6 +229,17 @@ int main(int argc, char *argv[])
     }
   }
 
+  tm start_date;
+
+  start_date.tm_hour = 12;
+  start_date.tm_min =
+    start_date.tm_sec = 0;					// hours, minutes, seconds
+  start_date.tm_mon = start_date.tm_yday = 0;	// month, day
+  start_date.tm_year = 50;					// year, begining 1900
+  start_date.tm_mday = 1;
+
+  const time_t BASE_TIME = mktime(&start_date);
+
   std::cout << "[INFO]: Interpolation complete" << std::endl;
 
   std::vector<std::pair<double_t, double_t>> locations{
@@ -255,11 +269,15 @@ int main(int argc, char *argv[])
 
       filename << (std::size_t)j << "-results.csv";
       std::ofstream fileout(filename.str());
-      fileout << "days since 1950-01-01,speed of sound minimum depth (m)"
+      fileout << "days since 1950-01-01,speed of sound minimum depth (m),date"
               << std::endl;
+
+      char date[11];
       for (auto i : a)
       {
-        fileout << i.first << "," << i.second << std::endl;
+        time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
+        strftime(date, sizeof(date), "%F", localtime(&t));
+        fileout << i.first << "," << i.second << ',' << date << std::endl;
       }
       fileout.close();
     }
@@ -270,10 +288,13 @@ int main(int argc, char *argv[])
 
       filename << (std::size_t)j << "-results.csv";
       std::ofstream fileout(filename.str());
-      fileout << "days since 1950-01-01,temperature at minimum" << std::endl;
-      for (auto i : t)
+      fileout << "days since 1950-01-01,average temperature across profiles,date" << std::endl;
+      char date[11];
+      for (auto i : a)
       {
-        fileout << i.first << "," << i.second << std::endl;
+        time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
+        strftime(date, sizeof(date), "%F", localtime(&t));
+        fileout << i.first << "," << i.second << ',' << date << std::endl;
       }
       fileout.close();
     }
@@ -320,11 +341,15 @@ int main(int argc, char *argv[])
 
     {
       std::ofstream fileout(OUTPUT_DIRECTORY + "/speed_of_sound/" + location_string.str() + ".sos-results.csv");
-      fileout << "days since 1950-01-01,speed of sound minimum depth (m)"
+      fileout << "days since 1950-01-01,speed of sound minimum depth (m),date"
               << std::endl;
+
+      char date[11];
       for (auto i : a)
       {
-        fileout << i.first << "," << i.second << std::endl;
+        time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
+        strftime(date, sizeof(date), "%F", localtime(&t));
+        fileout << i.first << "," << i.second << ',' << date << std::endl;
       }
       fileout.close();
     }
@@ -332,10 +357,13 @@ int main(int argc, char *argv[])
     {
       std::ofstream fileout(OUTPUT_DIRECTORY + "/temp/" + location_string.str() + ".temp-results.csv");
 
-      fileout << "days since 1950-01-01,temperature at minimum" << std::endl;
-      for (auto i : t)
+      fileout << "days since 1950-01-01,average temperature across profiles,date" << std::endl;
+      char date[11];
+      for (auto i : a)
       {
-        fileout << i.first << "," << i.second << std::endl;
+        time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
+        strftime(date, sizeof(date), "%F", localtime(&t));
+        fileout << i.first << "," << i.second << ',' << date << std::endl;
       }
       fileout.close();
     }
