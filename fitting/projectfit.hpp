@@ -47,9 +47,9 @@ std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_
   input_vector.shrink_to_fit();
 
   std::vector<double_t> in(input_vector);
-  double average = std::accumulate(in.begin(), in.end(), 0) / in.size();
-  for (auto &i : in)
-    i -= average;
+  //double average = std::accumulate(in.begin(), in.end(), 0) / in.size();
+  //for (auto &i : in)
+  //  i -= average;
 
   const std::size_t FFT_ARRAY_SIZE = (in.size() / 2 + 1);
 

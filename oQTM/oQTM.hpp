@@ -172,16 +172,8 @@ public:
     for (auto &element : get_points(location, spatial_granularity))
     {
       K index = std::floor(std::round(element.first / temporal_granularity) * temporal_granularity);
-      try
-      {
-        auto curr = result.at(index);
-        auto curr_count = ++count[index];
-        result[index] = (curr + element.second);
-      }
-      catch (std::out_of_range err)
-      {
-        result[index] = element.second;
-      }
+      ++count[index];
+      result[index] += element.second;
     }
 
     for (auto& element: result) {
