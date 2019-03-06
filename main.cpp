@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
       std::stringstream filename;
       filename << OUTPUT_DIRECTORY + "/speed_of_sound/";
 
-      filename << (std::size_t)j << "-results.csv";
+      filename << (std::size_t)j << ".sos-results.csv";
       std::ofstream fileout(filename.str());
       fileout << "days since 1950-01-01,speed of sound minimum depth (m),date"
               << std::endl;
@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
       std::stringstream filename;
       filename << OUTPUT_DIRECTORY + "/temp/";
 
-      filename << (std::size_t)j << "-results.csv";
+      filename << (std::size_t)j << ".temp-results.csv";
       std::ofstream fileout(filename.str());
       fileout << "days since 1950-01-01,average temperature across profiles,date" << std::endl;
       char date[11];
@@ -305,7 +305,7 @@ int main(int argc, char *argv[])
       std::stringstream filename_ps;
 
       filename_ps << OUTPUT_DIRECTORY + "/power_spectra/";
-      filename_ps << (std::size_t)loc[0] << ".results.csv";
+      filename_ps << (std::size_t)loc[0] << ".ps-results.csv";
       std::ofstream fileout(filename_ps.str());
       std::vector<double_t> absolutes(power_spectrum.size());
       std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) { return std::abs(a); });
