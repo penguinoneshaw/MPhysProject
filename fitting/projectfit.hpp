@@ -11,7 +11,6 @@
 #include <iostream>
 #include <complex>
 #include <tuple>
-#include <valarray>
 
 namespace fit
 {

@@ -9,6 +9,7 @@
 #include <memory>
 #include <stdexcept>
 #include <mutex>
+#include <cassert>
 
 class BeyondTreeDepthError : public std::logic_error
 {
@@ -162,6 +163,7 @@ public:
 
   std::map<K, V> get_averaged_points(location_t location, std::size_t spatial_granularity = N_LEVELS, std::size_t temporal_granularity = 1)
   {
+    assert(temporal_granularity != 0);
     if (location.size() > N_LEVELS)
       throw beyondTreeError;
 
@@ -169,16 +171,16 @@ public:
     std::map<K, uint64_t> count;
     for (auto &element : get_points(location, spatial_granularity))
     {
+      K index = std::floor(std::round(element.first / temporal_granularity) * temporal_granularity);
       try
       {
-        K index = std::floor(element.first / temporal_granularity) * temporal_granularity + temporal_granularity / 2;
-        auto curr = result.at(element.first);
-        auto curr_count = ++count[element.first];
-        result[element.first] = (curr + element.second);
+        auto curr = result.at(index);
+        auto curr_count = ++count[index];
+        result[index] = (curr + element.second);
       }
       catch (std::out_of_range err)
       {
-        result[element.first] = element.second;
+        result[index] = element.second;
       }
     }
 

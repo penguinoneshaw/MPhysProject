@@ -168,7 +168,7 @@ read_to_tree(const fs::path &filepath)
           std::find_if(actual_depths.begin(), actual_depths.end(),
                        [xmin](auto a) { return a > xmin; }))];*/
 
-      auto tavg = std::accumulate(actual_temperatures.begin(), actual_temperatures.end(), 0) / ((V) actual_temperatures.size()); 
+      auto tavg = std::accumulate(actual_temperatures.begin(), actual_temperatures.end(), 0) / ((V)actual_temperatures.size());
 
       const V result{xmin};
       results.push_back(std::tie(lon, lat, date, result));
@@ -192,7 +192,7 @@ read_to_tree(const fs::path &filepath)
 int main(int argc, char *argv[])
 {
   typedef double_t value_t;
-  typedef oQTM_Mesh<double_t, uint64_t, value_t, 4> mesh_t;
+  typedef oQTM_Mesh<double_t, uint64_t, value_t, 8> mesh_t;
   /*if (argc == 1 || !fs::is_directory(argv[1]))
   {
     std::cout << "Please pass a directory or filename to the programme" <<
@@ -238,10 +238,12 @@ int main(int argc, char *argv[])
       {158.790808, 14.856203}, // Western Pacific
       {-105.585039, 9.403472}  // Eastern Pacific
   };
-  fs::create_directory("output");
-  fs::create_directory("output/power_spectra");
-  fs::create_directory("output/speed_of_sound");
-  fs::create_directory("output/temp");
+
+  const std::string OUTPUT_DIRECTORY = "output-" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count() / 86400000000);
+  fs::create_directory(OUTPUT_DIRECTORY);
+  fs::create_directory(OUTPUT_DIRECTORY + "/power_spectra");
+  fs::create_directory(OUTPUT_DIRECTORY + "/speed_of_sound");
+  fs::create_directory(OUTPUT_DIRECTORY + "/temp");
   for (uint8_t j = 0; j < 8; j++)
   {
     auto loc = mesh_t::location_t{j};
@@ -249,7 +251,7 @@ int main(int argc, char *argv[])
     auto t = tempmesh.get_averaged_points(loc, 1, 10);
     {
       std::stringstream filename;
-      filename << "output/speed_of_sound/";
+      filename << OUTPUT_DIRECTORY + "/speed_of_sound/";
 
       filename << (std::size_t)j << "-results.csv";
       std::ofstream fileout(filename.str());
@@ -264,7 +266,7 @@ int main(int argc, char *argv[])
 
     {
       std::stringstream filename;
-      filename << "output/temp/";
+      filename << OUTPUT_DIRECTORY + "/temp/";
 
       filename << (std::size_t)j << "-results.csv";
       std::ofstream fileout(filename.str());
@@ -281,7 +283,7 @@ int main(int argc, char *argv[])
       auto power_spectrum = fit::analyse_periodicity(a);
       std::stringstream filename_ps;
 
-      filename_ps << "output/power_spectra/";
+      filename_ps << OUTPUT_DIRECTORY + "/power_spectra/";
       filename_ps << (std::size_t)loc[0] << ".results.csv";
       std::ofstream fileout(filename_ps.str());
       std::vector<double_t> absolutes(power_spectrum.size());
@@ -317,7 +319,7 @@ int main(int argc, char *argv[])
     file << location_string.str() << "," << locations[i].second << "," << locations[i].first << std::endl;
 
     {
-      std::ofstream fileout("output/speed_of_sound/" + location_string.str() + ".sos-results.csv");
+      std::ofstream fileout(OUTPUT_DIRECTORY + "/speed_of_sound/" + location_string.str() + ".sos-results.csv");
       fileout << "days since 1950-01-01,speed of sound minimum depth (m)"
               << std::endl;
       for (auto i : a)
@@ -328,7 +330,7 @@ int main(int argc, char *argv[])
     }
 
     {
-      std::ofstream fileout("output/temp/" + location_string.str() + ".temp-results.csv");
+      std::ofstream fileout(OUTPUT_DIRECTORY + "/temp/" + location_string.str() + ".temp-results.csv");
 
       fileout << "days since 1950-01-01,temperature at minimum" << std::endl;
       for (auto i : t)
@@ -340,7 +342,7 @@ int main(int argc, char *argv[])
     try
     {
       auto power_spectrum = fit::analyse_periodicity(a);
-      std::ofstream fileout("output/power_spectra/" + location_string.str() + ".ps-results.csv");
+      std::ofstream fileout(OUTPUT_DIRECTORY + "/power_spectra/" + location_string.str() + ".ps-results.csv");
       std::vector<double_t> absolutes(power_spectrum.size());
       std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) { return std::abs(a); });
       auto max = std::max_element(absolutes.begin(), absolutes.end());

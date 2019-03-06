@@ -26,7 +26,6 @@
 #$ -pe omp 16
 
 export OMP_NUM_THREADS=${NSLOTS:-4}
-mv output output_prev
 build/ProjectModelling ${1:-data}
  
 # The ${n:-default} syntax looks for the n'th argument supplied to the

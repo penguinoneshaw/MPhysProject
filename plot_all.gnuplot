@@ -28,7 +28,7 @@ do for [file in power_spectra] {
     set xlabel "Frequency"
     set ylabel "Normalised Power Spectrum"
 
-    plot file u ($3/3000) w lines;
+    plot file u ($0):($3/3000) w lines;
 }
 
 do for [file in speeds_of_sound] {
