@@ -166,9 +166,8 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
 
   ROOT::Minuit2::MnMigrad migrad(fcn, upar);
   ROOT::Minuit2::FunctionMinimum min = migrad();
+  auto xmin = fcn.function_minimum(min);
 
-  auto minCoeff = min.UserParameters().Params();
-  auto xmin = -minCoeff[1] / (2 * minCoeff[2]);
   //if (!min.IsValid() || xmin > *(avg_depths.end()) || xmin < *(avg_depths.begin()) || std::isnan(xmin))
 
   if (!min.IsValid() || std::isnan(xmin) || xmin > avg_depths.back() || xmin < avg_depths.front())
@@ -240,4 +239,9 @@ Chisquared::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min)
   std::transform(result.begin(), result.end(), result.begin(),
                  [&par](double d) { return polynomial_fit(par, d); });
   return result;
+}
+
+double Chisquared::function_minimum(ROOT::Minuit2::FunctionMinimum min){
+  auto minCoeff = min.UserParameters().Params();
+  return -minCoeff[1] / (2 * minCoeff[2]);
 }

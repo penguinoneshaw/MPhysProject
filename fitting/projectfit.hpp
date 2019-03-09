@@ -87,7 +87,7 @@ public:
   double operator()(const std::vector<double> &par) const;
 
   std::vector<double> fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min);
-
+  double function_minimum(ROOT::Minuit2::FunctionMinimum min);
   double Up() const
   {
     return 1;
