@@ -62,6 +62,7 @@ public:
   {
     return depth == N_LEVELS;
   }
+  
   void add_to_data(K key, V value)
   {
     data.insert(std::pair(key, value));

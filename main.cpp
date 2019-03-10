@@ -195,7 +195,7 @@ read_to_tree(const fs::path &filepath)
 int main(int argc, char *argv[])
 {
   typedef double_t value_t;
-  typedef oQTM_Mesh<double_t, uint64_t, value_t, 8> mesh_t;
+  typedef oQTM_Mesh<double_t, uint64_t, value_t, 6> mesh_t;
   /*if (argc == 1 || !fs::is_directory(argv[1]))
   {
     std::cout << "Please pass a directory or filename to the programme" <<
@@ -243,14 +243,14 @@ int main(int argc, char *argv[])
   std::cout << "[INFO]: Interpolation complete" << std::endl;
 
   std::vector<std::pair<double_t, double_t>> locations{
-      {-40.671851, 33.792983}, // Atlantic
-      {3.343785, 56.3836},     // North Sea
+      {-40.671900, 30.000}, // North Atlantic
+      {-14.442143, -30.000}, // South Atlantic
       {18.179810, 35.013669},  // Mediterranean
       {79.738750, -21.668352}, // Indian Ocean
-      {18.179806, 35.013667},  // Bay of Bengal
       {114.008616, 15.425780}, // South China Sea
       {158.790808, 14.856203}, // Western Pacific
-      {-105.585039, 9.403472}  // Eastern Pacific
+      {-105.585039, 9.403472},  // Eastern Pacific
+      {3.343785, 56.3836}     // North Sea
   };
 
   const std::string OUTPUT_DIRECTORY = "output-" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count() / 86400000000);
@@ -290,7 +290,7 @@ int main(int argc, char *argv[])
       std::ofstream fileout(filename.str());
       fileout << "days since 1950-01-01,average temperature across profiles,date" << std::endl;
       char date[11];
-      for (auto i : a)
+      for (auto i : t)
       {
         time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
         strftime(date, sizeof(date), "%F", localtime(&t));
@@ -330,8 +330,6 @@ int main(int argc, char *argv[])
   for (std::size_t i = 0; i < locations.size(); i++)
   {
     auto loc = globemesh.location(locations[i].first, locations[i].second);
-    auto a = globemesh.get_averaged_points(loc, 6, 10);
-    auto t = tempmesh.get_averaged_points(loc, 6, 10);
     std::stringstream location_string;
 
     for (auto i : loc)
@@ -339,54 +337,62 @@ int main(int argc, char *argv[])
 
     file << location_string.str() << "," << locations[i].second << "," << locations[i].first << std::endl;
 
-    {
-      std::ofstream fileout(OUTPUT_DIRECTORY + "/speed_of_sound/" + location_string.str() + ".sos-results.csv");
-      fileout << "days since 1950-01-01,speed of sound minimum depth (m),date"
-              << std::endl;
+    std::vector<int> mesh_depths {3,6};
 
-      char date[11];
-      for (auto i : a)
-      {
-        time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
-        strftime(date, sizeof(date), "%F", localtime(&t));
-        fileout << i.first << "," << i.second << ',' << date << std::endl;
-      }
-      fileout.close();
-    }
+    for (int k: mesh_depths) {
+      auto a = globemesh.get_averaged_points(loc, k, 30);
+      auto t = tempmesh.get_averaged_points(loc, k, 30);
 
-    {
-      std::ofstream fileout(OUTPUT_DIRECTORY + "/temp/" + location_string.str() + ".temp-results.csv");
+      {
+        std::ofstream fileout(OUTPUT_DIRECTORY + "/speed_of_sound/" + location_string.str() + "." + std::to_string(k) + ".sos-results.csv");
+        fileout << "days since 1950-01-01,speed of sound minimum depth (m),date"
+                << std::endl;
 
-      fileout << "days since 1950-01-01,average temperature across profiles,date" << std::endl;
-      char date[11];
-      for (auto i : a)
-      {
-        time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
-        strftime(date, sizeof(date), "%F", localtime(&t));
-        fileout << i.first << "," << i.second << ',' << date << std::endl;
-      }
-      fileout.close();
-    }
-    try
-    {
-      auto power_spectrum = fit::analyse_periodicity(a);
-      std::ofstream fileout(OUTPUT_DIRECTORY + "/power_spectra/" + location_string.str() + ".ps-results.csv");
-      std::vector<double_t> absolutes(power_spectrum.size());
-      std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) { return std::abs(a); });
-      auto max = std::max_element(absolutes.begin(), absolutes.end());
-      fileout << "Real,Imag,Normalised Power,Phase,Power" << std::endl;
-      for (auto i : power_spectrum)
-      {
-        fileout << i.real() << "," << i.imag() << "," << std::abs(i) / *max << ","
-                << std::arg(i) << "," << std::abs(i) << std::endl;
+        char date[11];
+        for (auto i : a)
+        {
+          time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
+          strftime(date, sizeof(date), "%F", localtime(&t));
+          fileout << i.first << "," << i.second << ',' << date << std::endl;
+        }
+        fileout.close();
       }
 
-      fileout.close();
-    }
-    catch (std::runtime_error e)
-    {
-      std::cerr << e.what() << std::endl;
-      continue;
+      {
+        std::ofstream fileout(OUTPUT_DIRECTORY + "/temp/" + location_string.str() + "." + std::to_string(i) + ".temp-results.csv");
+
+        fileout << "days since 1950-01-01,average temperature across profiles,date" << std::endl;
+        char date[11];
+        for (auto i : t)
+        {
+          time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
+          strftime(date, sizeof(date), "%F", localtime(&t));
+          fileout << i.first << "," << i.second << ',' << date << std::endl;
+        }
+        fileout.close();
+      }
+      try
+      {
+        auto power_spectrum = fit::analyse_periodicity(a);
+        std::ofstream fileout(OUTPUT_DIRECTORY + "/power_spectra/" + location_string.str() + "." + std::to_string(i) + ".ps-results.csv");
+        std::vector<double_t> absolutes(power_spectrum.size());
+        std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) { return std::abs(a); });
+        auto max = std::max_element(absolutes.begin(), absolutes.end());
+        fileout << "Real,Imag,Normalised Power,Phase,Power" << std::endl;
+        for (auto i : power_spectrum)
+        {
+          fileout << i.real() << "," << i.imag() << "," << std::abs(i) / *max << ","
+                  << std::arg(i) << "," << std::abs(i) << std::endl;
+        }
+
+        fileout.close();
+      }
+      catch (std::runtime_error e)
+      {
+        std::cerr << e.what() << std::endl;
+        continue;
+      }
+
     }
   }
   file.close();

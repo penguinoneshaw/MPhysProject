@@ -206,12 +206,6 @@ double bilinear_fit(const std::vector<double> &par, double d)
 
 double polynomial_fit(const std::vector<double> &par, double d)
 {
-  // This is the fitting function, which I can swap out as necessary
-  // Uses a cubic fitting function (originally was planned to be quadratic but
-  // this way it has the same number of coefficients as the bilinear). Expects
-  // par to be in the format (c_i) for i in [0, 3] is the 'position' of the
-  // turning point in the depth-speed plane
-
   return poly::horners_method(par, d);
 }
 
