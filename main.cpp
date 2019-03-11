@@ -163,7 +163,7 @@ read_to_tree(const fs::path &filepath)
 
     try
     {
-      auto xmin = fit::find_SOFAR_channel(speed_of_sound_vec, actual_depths, 5);
+      auto xmin = fit::find_SOFAR_channel(speed_of_sound_vec, actual_depths, 3);
       if (xmin > actual_depths.back())
         continue;
       /*auto tmin = actual_temperatures[std::distance(
@@ -184,7 +184,6 @@ read_to_tree(const fs::path &filepath)
     }
     catch (std::runtime_error e)
     {
-      //std::cerr << e.what() << std::endl;
       continue;
     }
   }
@@ -381,6 +380,7 @@ int main(int argc, char *argv[])
         fileout << "Real,Imag,Normalised Power,Phase,Power" << std::endl;
         for (auto i : power_spectrum)
         {
+
           fileout << i.real() << "," << i.imag() << "," << std::abs(i) / *max << ","
                   << std::arg(i) << "," << std::abs(i) << std::endl;
         }

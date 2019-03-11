@@ -22,3 +22,4 @@ build/ProjectModelling <directory name containing data>
 ## Other Build Requirements
  - the `netcdf` C library
  - Boost (with the up-to-date filesystems module)
+ - 'Fastest Fourier Transform in the West' (fftw3)
