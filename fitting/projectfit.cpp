@@ -120,7 +120,7 @@ moving_average(const std::vector<double_t> &vector, const std::size_t period);
 template std::tuple<std::vector<float_t>, std::vector<float_t>> moving_average(const std::vector<float_t> &vector, const std::size_t period);
 
 template <typename T>
-T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths, std::size_t averaging_granularity)
+std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths, std::size_t averaging_granularity)
 {
   auto [avg_sos, sos_errors] = moving_average(speed_of_sound, averaging_granularity);
   auto [avg_depths, depths_errors] = moving_average(depths, averaging_granularity);
@@ -166,7 +166,7 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
 
   ROOT::Minuit2::MnMigrad migrad(fcn, upar);
   ROOT::Minuit2::FunctionMinimum min = migrad();
-  auto xmin = fcn.function_minimum(min);
+  auto [xmin,err] = fcn.function_minimum(min);
 
   //if (!min.IsValid() || xmin > *(avg_depths.end()) || xmin < *(avg_depths.begin()) || std::isnan(xmin))
 
@@ -176,11 +176,11 @@ T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> 
   }
   else
   {
-    return (T) xmin;
+    return std::tuple((T) xmin, (T) err);
   }
 }
 
-template double_t find_SOFAR_channel(const std::vector<double_t> &speed_of_sound, const std::vector<double_t> &depths, std::size_t averaging_granularity);
+template std::tuple<double_t,double_t> find_SOFAR_channel(const std::vector<double_t> &speed_of_sound, const std::vector<double_t> &depths, std::size_t averaging_granularity);
 
 } // namespace fit
 
@@ -235,7 +235,9 @@ Chisquared::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min)
   return result;
 }
 
-double Chisquared::function_minimum(ROOT::Minuit2::FunctionMinimum min){
+std::pair<double,double> Chisquared::function_minimum(ROOT::Minuit2::FunctionMinimum min){
+  /**  Calculates the minumum of the function, as well as the error, asssuming that a quadratic fitting function was used.
+   */
   auto minCoeff = min.UserParameters().Params();
-  return -minCoeff[1] / (2 * minCoeff[2]);
+  return std::pair(-minCoeff[1] / (2 * minCoeff[2]), std::abs(-minCoeff[1] / (2 * minCoeff[2]))*std::sqrt(std::pow(min.UserParameters().Error(1)/minCoeff[1],2) + std::pow(min.UserParameters().Error(2)/minCoeff[2],2)));
 }

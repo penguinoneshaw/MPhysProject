@@ -18,7 +18,7 @@ std::vector<float> low_pass_filter(const std::vector<float> &vector, const std::
 template <typename T>
 std::tuple<std::vector<T>, std::vector<T>> moving_average(const std::vector<T> &vector, const std::size_t period = 10);
 template <typename T>
-T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths, std::size_t averaging_granularity = 10);
+std::tuple<T, T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths, std::size_t averaging_granularity = 10);
 
 template <typename K, typename V>
 std::map<double_t, std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_data, std::size_t block_size = 1)
@@ -90,7 +90,7 @@ public:
   double operator()(const std::vector<double> &par) const;
 
   std::vector<double> fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min);
-  double function_minimum(ROOT::Minuit2::FunctionMinimum min);
+  std::pair<double,double> function_minimum(ROOT::Minuit2::FunctionMinimum min);
   double Up() const
   {
     return 1;
