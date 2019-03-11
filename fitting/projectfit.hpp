@@ -21,7 +21,7 @@ template <typename T>
 T find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths, std::size_t averaging_granularity = 10);
 
 template <typename K, typename V>
-std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_data)
+std::map<double_t, std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_data, std::size_t block_size = 1)
 {
   // Assumes integer spaced time series
   std::vector<V> input_vector{};
@@ -35,9 +35,9 @@ std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_
   for (it = std::next(it); it != std::end(t_series_data); it = std::next(it), prev = std::next(prev))
   {
     std::size_t abs_diff = it->first - prev->first;
-    if (abs_diff > 1)
+    if (abs_diff > block_size)
     {
-      for (std::size_t i = 0; i < abs_diff; i++)
+      for (std::size_t i = 0; i < abs_diff; i+=block_size)
       {
         input_vector.push_back(0);
       }
@@ -59,15 +59,18 @@ std::vector<std::complex<double_t>> analyse_periodicity(std::map<K, V> t_series_
       fftw_plan_dft_r2c_1d(in.size(), in.data(), fft, FFTW_ESTIMATE);
   fftw_execute(forward);
   fftw_destroy_plan(forward);
-  std::vector<std::complex<double_t>> out(in.size() / 2 + 1);
+
+  double_t freq_block = 1/((double_t) block_size * in.size());
+
+  std::map<double_t, std::complex<double_t>> output_map;
   for (std::size_t i = 0; i < FFT_ARRAY_SIZE; i++)
   {
-    out[i] = std::complex(fft[i][0], fft[i][1]);
+    output_map[i * freq_block] = std::complex(fft[i][0], fft[i][1]);
   }
   fftw_free(fft);
-  out[0] = 0;
+  output_map[0] = 0;
 
-  return out;
+  return output_map;
 }
 } // namespace fit
 

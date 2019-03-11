@@ -28,7 +28,7 @@ do for [file in temperatures] {
     set xdata time
     set format x "%Y-%m-%d"
     set xlabel "Time (days since 1950-01-01)"
-    set ylabel "Temperature at predicted minimum"
+    set ylabel "Mean Temperature Across Profile (degree Celsius)"
     fit f(x) file u 3:2 via a,b;
 
     plot file u 3:2, f(x);

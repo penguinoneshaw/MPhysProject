@@ -307,12 +307,12 @@ int main(int argc, char *argv[])
       filename_ps << (std::size_t)loc[0] << ".ps-results.csv";
       std::ofstream fileout(filename_ps.str());
       std::vector<double_t> absolutes(power_spectrum.size());
-      std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) { return std::abs(a); });
+      std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) { return std::abs(a.second); });
       auto max = std::max_element(absolutes.begin(), absolutes.end());
-      fileout << "Real,Imag,Normalised Power,Phase,Power" << std::endl;
-      for (auto i : power_spectrum)
+      fileout << "frequency,Real,Imag,Normalised Power,Phase,Power" << std::endl;
+      for (auto [f, i] : power_spectrum)
       {
-        fileout << i.real() << "," << i.imag() << "," << std::abs(i) / *max << ","
+        fileout<< f << i.real() << "," << i.imag() << "," << std::abs(i) / *max << ","
                 << std::arg(i) << "," << std::abs(i) << std::endl;
       }
       fileout.close();
@@ -375,13 +375,15 @@ int main(int argc, char *argv[])
         auto power_spectrum = fit::analyse_periodicity(a);
         std::ofstream fileout(OUTPUT_DIRECTORY + "/power_spectra/" + location_string.str() + "." + std::to_string(i) + ".ps-results.csv");
         std::vector<double_t> absolutes(power_spectrum.size());
-        std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) { return std::abs(a); });
+        std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) { return std::abs(a.second); });
         auto max = std::max_element(absolutes.begin(), absolutes.end());
-        fileout << "Real,Imag,Normalised Power,Phase,Power" << std::endl;
-        for (auto i : power_spectrum)
+        fileout << "frequency,Real,Imag,Normalised Power,Phase,Power" << std::endl;
+
+		unsigned int period = (*a.end()).first - (*a.begin()).first;
+        for (auto [f, i] : power_spectrum)
         {
 
-          fileout << i.real() << "," << i.imag() << "," << std::abs(i) / *max << ","
+          fileout << f << i.real() << "," << i.imag() << "," << std::abs(i) / *max << ","
                   << std::arg(i) << "," << std::abs(i) << std::endl;
         }
 
