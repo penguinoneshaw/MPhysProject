@@ -362,7 +362,7 @@ int main(int argc, char *argv[])
         {
           time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
           strftime(date, sizeof(date), "%F", localtime(&t));
-          fileout << i.first << ',' << date << "," << i.second  << errors[i.first] << std::endl;
+          fileout << i.first << ',' << date << "," << i.second << "," << errors[i.first] << std::endl;
         }
         fileout.close();
       }
