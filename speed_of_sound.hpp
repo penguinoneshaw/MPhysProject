@@ -51,6 +51,13 @@ template <class T> const T speed_of_sound(const T &p, const T &t, const T &s) {
   return C_w + A * s + B * s * std::sqrt(s) + D * s * s;
 }
 
+template <class T> T leroy_et_al(const T z, const T t, const T s, const T lat){
+  return 1402.5 + s*1.33 + 
+                    t * (5 - 1.23e-2*s - t * ( 5.44e-2 + 8.7e-5*s + 3e-7*z + t * 2.1e-4 )) + 
+                    z * (1.56e-2 + 1.43e-5*s + z*(2.55e-7 - z*(7.3e-12 - 9.5e-13 * t ))) +
+                    1.2e-6 * (lat-45) * z ;
+}
+
 } // namespace speed_of_sound
 
 
