@@ -160,7 +160,7 @@ std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const s
   auto chisquared_errors = std::vector<double_t>(std::begin(sos_errors) + endindex, sos_errors.end());
   Chisquared fcn(chisquared_depths, chisquared_sos, chisquared_errors);
   ROOT::Minuit2::MnUserParameters upar;
-  upar.Add("c_0", depths[0], 1000);
+  upar.Add("c_0", 1000, 1);
   upar.Add("c_1", 0, 1);
   upar.Add("c_2", 0, 1);
 

@@ -114,7 +114,7 @@ public:
   }
 };
 
-template <typename T, typename K, typename V, std::size_t N_LEVELS>
+template <typename T, typename K, typename V, std::size_t N_LEVELS, bool ERROR=false>
 class oQTM_Mesh
 {
 private:
@@ -174,10 +174,17 @@ public:
     {
       K index = std::floor(std::round(element.first / temporal_granularity) * temporal_granularity);
       ++count[index];
+      if (ERROR) {
+        result[index] += std::pow(element.second, 2);
+      } else {
       result[index] += element.second;
+      }
     }
 
     for (auto& element: result) {
+      if (ERROR) {
+        result[element.first] = std::sqrt(result[element.first]);
+      }
       result[element.first] /= ((V)count[element.first]);
     }
 
@@ -192,26 +199,26 @@ public:
     if (_y > 0.5)
     {
       quadrant = 1;
-      x = 2 * _x;
+      x = 2.0 * _x;
       y = (_y - 0.5) * 2;
     }
     else if (_y < 0.5 - _x)
     {
       quadrant = 2;
-      x = 2 * _x;
-      y = 2 * _y;
+      x = 2.0 * _x;
+      y = 2.0 * _y;
     }
     else if (_x >= 0)
     {
-      y = 2 * _y;
-      x = (_x - 0.5) * 2;
+      y = 2.0 * _y;
+      x = (_x - 0.5) * 2.0;
       quadrant = 3;
     }
     else
     {
       quadrant = 0;
-      x = 1 - 2 * _x;
-      y = 1 - 2 * _y;
+      x = 1.0 - 2.0 * _x;
+      y = 1.0 - 2.0 * _y;
     }
 
     return std::tie(x, y, quadrant);

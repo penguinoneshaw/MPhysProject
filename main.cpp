@@ -209,7 +209,7 @@ int main(int argc, char *argv[])
 
   mesh_t globemesh;
   mesh_t tempmesh;
-  mesh_t errormesh;
+  oQTM_Mesh<double_t, uint64_t, value_t, 6, true> errormesh;
 
   if (argc == 1)
   {
@@ -277,7 +277,7 @@ int main(int argc, char *argv[])
 
       filename << (std::size_t)j << ".sos-results.csv";
       std::ofstream fileout(filename.str());
-      fileout << "days since 1950-01-01,speed of sound minimum depth (m),err,date"
+      fileout << "days since 1950-01-01,date,speed of sound minimum depth (m),err"
               << std::endl;
 
       char date[11];
@@ -285,7 +285,7 @@ int main(int argc, char *argv[])
       {
         time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
         strftime(date, sizeof(date), "%F", localtime(&t));
-        fileout << i.first << "," << i.second << ',' << date << errors[i.first] << std::endl;
+        fileout << i.first << ',' << date << "," << i.second << ','  << errors[i.first] << std::endl;
       }
       fileout.close();
     }
@@ -296,13 +296,13 @@ int main(int argc, char *argv[])
 
       filename << (std::size_t)j << ".temp-results.csv";
       std::ofstream fileout(filename.str());
-      fileout << "days since 1950-01-01,average temperature across profiles,date" << std::endl;
+      fileout << "days since 1950-01-01,date,average temperature across profiles" << std::endl;
       char date[11];
       for (auto i : t)
       {
         time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
         strftime(date, sizeof(date), "%F", localtime(&t));
-        fileout << i.first << "," << i.second << ',' << date << std::endl;
+        fileout << i.first  << ',' << date << "," << i.second << std::endl;
       }
       fileout.close();
     }
@@ -321,7 +321,7 @@ int main(int argc, char *argv[])
       fileout << "frequency,Real,Imag,Normalised Power,Phase,Power" << std::endl;
       for (auto [f, i] : power_spectrum)
       {
-        fileout<< f << i.real() << "," << i.imag() << "," << std::abs(i) / *max << ","
+        fileout<< f << "," << i.real() << "," << i.imag() << "," << std::abs(i) / *max << ","
                 << std::arg(i) << "," << std::abs(i) << std::endl;
       }
       fileout.close();
@@ -354,7 +354,7 @@ int main(int argc, char *argv[])
 
       {
         std::ofstream fileout(OUTPUT_DIRECTORY + "/speed_of_sound/" + location_string.str() + "." + std::to_string(k) + ".sos-results.csv");
-        fileout << "days since 1950-01-01,speed of sound minimum depth (m),err,date"
+        fileout << "days since 1950-01-01,date,speed of sound minimum depth (m),err"
                 << std::endl;
 
         char date[11];
@@ -362,7 +362,7 @@ int main(int argc, char *argv[])
         {
           time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
           strftime(date, sizeof(date), "%F", localtime(&t));
-          fileout << i.first << "," << i.second << ',' << date << errors[i.first] << std::endl;
+          fileout << i.first << ',' << date << "," << i.second  << errors[i.first] << std::endl;
         }
         fileout.close();
       }
@@ -370,13 +370,13 @@ int main(int argc, char *argv[])
       {
         std::ofstream fileout(OUTPUT_DIRECTORY + "/temp/" + location_string.str() + "." + std::to_string(i) + ".temp-results.csv");
 
-        fileout << "days since 1950-01-01,average temperature across profiles,date" << std::endl;
+        fileout << "days since 1950-01-01,date,average temperature across profiles" << std::endl;
         char date[11];
         for (auto i : t)
         {
           time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
           strftime(date, sizeof(date), "%F", localtime(&t));
-          fileout << i.first << "," << i.second << ',' << date << std::endl;
+          fileout << i.first  << ',' << date << "," << i.second << std::endl;
         }
         fileout.close();
       }
@@ -393,7 +393,7 @@ int main(int argc, char *argv[])
         for (auto [f, i] : power_spectrum)
         {
 
-          fileout << f << i.real() << "," << i.imag() << "," << std::abs(i) / *max << ","
+          fileout << f << "," << i.real() << "," << i.imag() << "," << std::abs(i) / *max << ","
                   << std::arg(i) << "," << std::abs(i) << std::endl;
         }
 
