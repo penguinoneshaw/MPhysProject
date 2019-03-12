@@ -20,7 +20,7 @@ namespace poly
   }
 
   template <class T>
-  const T horner2D(const std::vector<std::vector<T>> &coefficients, const T &x_0, const T &y_0)
+  T horner2D(const std::vector<std::vector<T>> &coefficients, const T &x_0, const T &y_0)
   {
     std::vector<T> result(coefficients.size(), 0);
     std::transform(coefficients.begin(), coefficients.end(), result.begin(),
@@ -31,9 +31,9 @@ namespace poly
   }
 
   template
-  const double_t horner2D(const std::vector<std::vector<double_t>> &coefficients, const double_t &x_0, const double_t &y_0);
+  double_t horner2D(const std::vector<std::vector<double_t>> &coefficients, const double_t &x_0, const double_t &y_0);
     template
-  const float_t horner2D(const std::vector<std::vector<float_t>> &coefficients, const float_t &x_0, const float_t &y_0);
+  float_t horner2D(const std::vector<std::vector<float_t>> &coefficients, const float_t &x_0, const float_t &y_0);
 } // namespace poly
 
 #endif // H_POLYNOMIAL
