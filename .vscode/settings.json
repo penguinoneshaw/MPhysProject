@@ -84,5 +84,5 @@
     "markdown",
     "latex"
   ],
-  "python.pythonPath": "/usr/local/opt/python/bin/python3.7"
+  "python.pythonPath": "/bin/python3"
 }

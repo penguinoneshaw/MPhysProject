@@ -4,7 +4,7 @@ from ctypes import cdll, c_double, CFUNCTYPE
 import numpy as np
 import seaborn
 from matplotlib import pyplot as plt
-# import netCDF4
+import netCDF4
 
 try:
   lib = cdll.LoadLibrary("./libProjectPython.dylib")
@@ -37,7 +37,6 @@ def plot_contours(ufunc, title):
   plt.ylabel("Depth (m)")
   plt.xlabel("Temperature (degrees C)")
 
-
   plt.subplot(222)
   s, d = np.meshgrid(salinities, depths)
   cp = plt.contour(s, d, ufunc(d, 10, s))
@@ -45,12 +44,12 @@ def plot_contours(ufunc, title):
   plt.ylabel("Depth (m)")
   plt.xlabel("Salinity (ppt)")
 
-  plt.subplot(224)
-  s,t = np.meshgrid(salinities, temps)
-  cp = plt.contour(s,t, ufunc(1000, t, s))
+  plt.subplot(223)
+  t,s = np.meshgrid(temps, salinities)
+  cp = plt.contour(t,s, ufunc(1000, t, s))
   plt.clabel(cp, inline=True)
-  plt.ylabel("Temp (degrees Celsius)")
-  plt.xlabel("Salinity (ppt)")
+  plt.xlabel("Temp (degrees Celsius)")
+  plt.ylabel("Salinity (ppt)")
   plt.suptitle(title)
 
 plot_contours(ufunc_unesco, "UNESCO Equation (Chen and Millero 1998)")

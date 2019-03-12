@@ -147,9 +147,10 @@ read_to_tree(const fs::path &filepath)
     {
       if ((levelQC[j] & 0b11) != 0 || std::isnan(levelQC[j]))
         continue;
-      auto s = speed_of_sound::speed_of_sound(
+      /*auto s = speed_of_sound::speed_of_sound(
           speed_of_sound::pressure_at_depth((double_t)depthIn[j], lat),
-          (double_t)tempIn[j], (double_t)salIn[j]);
+          (double_t)tempIn[j], (double_t)salIn[j]);*/
+      auto s = speed_of_sound::leroy_et_al((double_t)depthIn[j], (double_t)tempIn[j], (double_t)salIn[j], lat);
       speed_of_sound_vec.push_back(s);
       actual_depths.push_back((double_t)depthIn[j]);
       actual_temperatures.push_back(tempIn[j]);
@@ -260,7 +261,7 @@ int main(int argc, char *argv[])
       {3.343785, 56.3836}     // North Sea
   };
 
-  const std::string OUTPUT_DIRECTORY = "output-" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count() / 86400000000);
+  const std::string OUTPUT_DIRECTORY = "output-" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count() / 86400000);
   fs::create_directory(OUTPUT_DIRECTORY);
   fs::create_directory(OUTPUT_DIRECTORY + "/power_spectra");
   fs::create_directory(OUTPUT_DIRECTORY + "/speed_of_sound");
