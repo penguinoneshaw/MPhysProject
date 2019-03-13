@@ -17,6 +17,9 @@ namespace fit
 std::vector<float> low_pass_filter(const std::vector<float> &vector, const std::size_t cutoff = 15);
 template <typename T>
 std::tuple<std::vector<T>, std::vector<T>> moving_average(const std::vector<T> &vector, const std::size_t period = 10);
+
+double ideal_sound_channel(const std::vector<double> &par, double z);
+
 template <typename T>
 std::tuple<T, T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths, std::size_t averaging_granularity = 10);
 

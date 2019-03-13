@@ -27,9 +27,9 @@ do for [file in temperatures] {
     print filename
     set output filename
     set xdata time
-    set format x "%Y-%m-%d"
-    set xlabel "Time (days since 1950-01-01)"
-    set ylabel "Mean Temperature Across Profile (degree Celsius)"
+    set format x "%Y"
+    set xlabel "Date"
+    set ylabel "Mean Temperature Across Profiles (degree Celsius)"
     fit f(x) file u 2:3 via a,b;
     fit g(x) file u 2:3 via f,g,h;
     plot file u 2:3, f(x), g(x);
@@ -40,10 +40,12 @@ do for [file in speeds_of_sound] {
     print filename
     set output filename
     set xdata time
-    set format x "%Y-%m-%d"
-    set xlabel "Time (days since 1950-01-01)"
+    set format x "%Y"
+    set xlabel "Date"
     set ylabel "Depth below sea level (m)"
     fit f(x) file u 2:3:4 zerror via a,b;
+    fit g(x) file u 2:3:4 zerror via f,g,h;
+
     set yrange [2000:0]
-    plot file u 2:3:4 w yerr, f(x);
+    plot file u 2:3:4 w yerr, f(x),g(x);
 }

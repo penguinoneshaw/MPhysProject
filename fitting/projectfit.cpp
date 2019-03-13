@@ -140,7 +140,7 @@ std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const s
   auto diff_avg_sos = differentiate(avg_depths, avg_sos);
 
   std::vector<size_t> maxima{0};
-  if (diff_avg_sos.size() < 5)
+  if (diff_avg_sos.size() < 5 || avg_depths.back() < 1000)
   {
     throw std::runtime_error("NOT ENOUGH DATA");
   }
@@ -160,17 +160,22 @@ std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const s
   auto chisquared_errors = std::vector<double_t>(std::begin(sos_errors) + endindex, sos_errors.end());
   Chisquared fcn(chisquared_depths, chisquared_sos, chisquared_errors);
   ROOT::Minuit2::MnUserParameters upar;
-  upar.Add("c_0", 1000, 1);
+  /* upar.Add("c_0", 1000, 1);
   upar.Add("c_1", 0, 1);
   upar.Add("c_2", 0, 1);
+  */
+
+  upar.Add("z_1", 1000.0, 1.0, 0.0, 2000.0);
+  upar.Add("B", 1.3, 1.0, 0.0, 2.0);
+  upar.Add("C_1", 1.5, 1.0, 0, 2.0);
+  upar.Add("gamma", 1, 1);
+
 
   ROOT::Minuit2::MnMigrad migrad(fcn, upar);
   ROOT::Minuit2::FunctionMinimum min = migrad();
   auto [xmin,err] = fcn.function_minimum(min);
 
-  //if (!min.IsValid() || xmin > *(avg_depths.end()) || xmin < *(avg_depths.begin()) || std::isnan(xmin))
-
-  if (!min.IsValid() || std::isnan(xmin) || xmin > avg_depths.back() || xmin < avg_depths.front() || err > 20)
+  if (!min.IsValid() || std::isnan(xmin) || xmin > avg_depths.back() || xmin < avg_depths.front() /*|| err > 20*/)
   {
     throw std::runtime_error("out of region");
   }
@@ -209,12 +214,20 @@ double polynomial_fit(const std::vector<double> &par, double d)
   return poly::horners_method(par, d);
 }
 
+double ideal_sound_channel(const std::vector<double> &par, double z){
+  /** https://asa.scitation.org/doi/pdf/10.1121/1.1914492 */
+  double z_1 = par[0], B = par[1], C_1 = par[2], gamma = par[3], eps=0.5*B*gamma, eta = (z - z_1)/(1000*0.5*B);
+  return C_1 * (1 + eps * (eta + std::exp(-eta) - 1));
+}
+
 double Chisquared::operator()(const std::vector<double> &par) const
 {
   std::vector<double> fitted_speeds(this->depths.size());
   std::transform(this->depths.begin(), this->depths.end(),
                  fitted_speeds.begin(),
-                 [&par](double d) { return polynomial_fit(par, d); });
+                 // [&par](double d) { return polynomial_fit(par, d); }
+                 [&par](double z) { return ideal_sound_channel(par, z); }
+                 );
 
   double result = 0;
 
@@ -239,5 +252,7 @@ std::pair<double,double> Chisquared::function_minimum(ROOT::Minuit2::FunctionMin
   /**  Calculates the minumum of the function, as well as the error, asssuming that a quadratic fitting function was used.
    */
   auto minCoeff = min.UserParameters().Params();
-  return std::pair(-minCoeff[1] / (2 * minCoeff[2]), std::abs(-minCoeff[1] / (2 * minCoeff[2]))*std::sqrt(std::pow(min.UserParameters().Error(1)/minCoeff[1],2) + std::pow(min.UserParameters().Error(2)/minCoeff[2],2)));
+  // return std::pair(-minCoeff[1] / (2 * minCoeff[2]), std::abs(-minCoeff[1] / (2 * minCoeff[2]))*std::sqrt(std::pow(min.UserParameters().Error(1)/minCoeff[1],2) + std::pow(min.UserParameters().Error(2)/minCoeff[2],2)));
+
+  return std::pair(minCoeff[0], min.UserParameters().Error(0));
 }

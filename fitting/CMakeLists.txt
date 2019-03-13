@@ -8,4 +8,4 @@ target_include_directories(ProjectFit PRIVATE "../")
 
 find_package(OpenMP REQUIRED)
 find_package(Boost REQUIRED COMPONENTS iostreams system filesystem)
-target_link_libraries(ProjectFit PRIVATE OpenMP::OpenMP_CXX ${Boost_LIBRARIES} Minuit2::Minuit2)
+target_link_libraries(ProjectFit PUBLIC OpenMP::OpenMP_CXX ${Boost_LIBRARIES} Minuit2::Minuit2)

@@ -269,9 +269,9 @@ int main(int argc, char *argv[])
   for (uint8_t j = 0; j < 8; j++)
   {
     auto loc = mesh_t::location_t{j};
-    auto a = globemesh.get_averaged_points(loc, 1, 30);
-    auto t = tempmesh.get_averaged_points(loc, 1, 30);
-    auto errors = errormesh.get_averaged_points(loc, 1, 30);
+    auto a = globemesh.get_averaged_points(loc, 1, 10);
+    auto t = tempmesh.get_averaged_points(loc, 1, 10);
+    auto errors = errormesh.get_averaged_points(loc, 1, 10);
     {
       std::stringstream filename;
       filename << OUTPUT_DIRECTORY + "/speed_of_sound/";
@@ -310,7 +310,7 @@ int main(int argc, char *argv[])
 
     try
     {
-      auto power_spectrum = fit::analyse_periodicity(a,30);
+      auto power_spectrum = fit::analyse_periodicity(a,10);
       std::stringstream filename_ps;
 
       filename_ps << OUTPUT_DIRECTORY + "/power_spectra/";
@@ -349,9 +349,9 @@ int main(int argc, char *argv[])
     std::vector<int> mesh_depths {3,6};
 
     for (int k: mesh_depths) {
-      auto a = globemesh.get_averaged_points(loc, k, 30);
-      auto t = tempmesh.get_averaged_points(loc, k, 30);
-      auto errors = errormesh.get_averaged_points(loc, k, 30);
+      auto a = globemesh.get_averaged_points(loc, k, 10);
+      auto t = tempmesh.get_averaged_points(loc, k, 10);
+      auto errors = errormesh.get_averaged_points(loc, k, 10);
 
       {
         std::ofstream fileout(OUTPUT_DIRECTORY + "/speed_of_sound/" + location_string.str() + "." + std::to_string(k) + ".sos-results.csv");
@@ -383,7 +383,7 @@ int main(int argc, char *argv[])
       }
       try
       {
-        auto power_spectrum = fit::analyse_periodicity(a,30);
+        auto power_spectrum = fit::analyse_periodicity(a,10);
         std::ofstream fileout(OUTPUT_DIRECTORY + "/power_spectra/" + location_string.str() + "." + std::to_string(i) + ".ps-results.csv");
         std::vector<double_t> absolutes(power_spectrum.size());
         std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) { return std::abs(a.second); });
