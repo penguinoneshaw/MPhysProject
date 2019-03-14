@@ -63,7 +63,7 @@ std::map<double_t, std::complex<double_t>> analyse_periodicity(std::map<K, V> t_
   fftw_execute(forward);
   fftw_destroy_plan(forward);
 
-  double_t freq_block = 1/((double_t) t_series_data.end()->first - t_series_data.begin()->first);
+  double_t freq_block = 1/((double_t) block_size * in.size());
 
   std::map<double_t, std::complex<double_t>> output_map;
   for (std::size_t i = 0; i < FFT_ARRAY_SIZE; i++)
