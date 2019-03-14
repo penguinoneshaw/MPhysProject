@@ -140,7 +140,7 @@ std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const s
   auto diff_avg_sos = differentiate(avg_depths, avg_sos);
 
   std::vector<size_t> maxima{0};
-  if (diff_avg_sos.size() < 5 || avg_depths.back() < 1000)
+  if (diff_avg_sos.size() < 5)
   {
     throw std::runtime_error("NOT ENOUGH DATA");
   }
@@ -165,9 +165,9 @@ std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const s
   upar.Add("c_2", 0, 1);
   */
 
-  upar.Add("z_1", 1000.0, 1.0, 0.0, 2000.0);
-  upar.Add("B", 1.3, 1.0, 0.0, 2.0);
-  upar.Add("C_1", 1.5, 1.0, 0, 2.0);
+  upar.Add("z_1", 1000.0, 1.0);
+  upar.Add("B", 1.3, 1.0);
+  upar.Add("C_1", 1.5, 1.0);
   upar.Add("gamma", 1, 1);
 
 
@@ -175,7 +175,7 @@ std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const s
   ROOT::Minuit2::FunctionMinimum min = migrad();
   auto [xmin,err] = fcn.function_minimum(min);
 
-  if (!min.IsValid() || std::isnan(xmin) || xmin > avg_depths.back() || xmin < avg_depths.front() /*|| err > 20*/)
+  if (!min.IsValid() || std::isnan(err) || std::isnan(xmin) || xmin > avg_depths.back() || xmin < avg_depths.front() /*|| err > 20*/)
   {
     throw std::runtime_error("out of region");
   }
