@@ -29,12 +29,11 @@
 namespace fs = boost::filesystem;
 constexpr int SECONDS_IN_DAY = 24*60*60;
 
-
 template <typename T, typename K, typename V>
 std::tuple<std::vector<std::tuple<T, T, K, V>>,
            std::vector<std::tuple<T, T, K, V>>,
            std::vector<std::tuple<T, T, K, V>>>
-read_to_tree(const fs::path &filepath)
+read_to_tree(const fs::path &filepath, speed_of_sound::SpeedOfSoundAlgorithm method = speed_of_sound::ALGORITHM_UNESCO, const fit::FitFunction fitfunction = fit::FIT_QUADRATIC)
 {
   using namespace netCDF;
 
@@ -147,10 +146,21 @@ read_to_tree(const fs::path &filepath)
     {
       if ((levelQC[j] & 0b11) != 0 || std::isnan(levelQC[j]))
         continue;
-      /*auto s = speed_of_sound::speed_of_sound(
-          speed_of_sound::pressure_at_depth((double_t)depthIn[j], lat),
-          (double_t)tempIn[j], (double_t)salIn[j]);*/
-      auto s = speed_of_sound::leroy_et_al((double_t)depthIn[j], (double_t)tempIn[j], (double_t)salIn[j], lat);
+      T s;
+
+      switch (method)
+      {
+        case speed_of_sound::ALGORITHM_LEROY:
+          s = speed_of_sound::leroy_et_al((double_t)depthIn[j], (double_t)tempIn[j], (double_t)salIn[j], lat);
+          break;
+      
+        default:
+          s = speed_of_sound::speed_of_sound(
+              speed_of_sound::pressure_at_depth((double_t)depthIn[j], lat),
+              (double_t)tempIn[j], (double_t)salIn[j]);
+          break;
+      }
+        
       speed_of_sound_vec.push_back(s);
       actual_depths.push_back((double_t)depthIn[j]);
       actual_temperatures.push_back(tempIn[j]);
@@ -167,7 +177,17 @@ read_to_tree(const fs::path &filepath)
 
     try
     {
-      auto [xmin,errmin] = fit::find_SOFAR_channel(speed_of_sound_vec, actual_depths, 3);
+      V xmin, errmin;
+      switch (fitfunction)
+      {
+        case fit::FIT_IDEAL:
+          std::tie(xmin, errmin) = fit::find_SOFAR_channel<V, fit::FIT_IDEAL>(speed_of_sound_vec, actual_depths, 3);
+          break;
+      
+        default:
+          std::tie(xmin, errmin) = fit::find_SOFAR_channel<V, fit::FIT_QUADRATIC>(speed_of_sound_vec, actual_depths, 3);
+          break;
+      }
       if (xmin > actual_depths.back())
         continue;
       /*auto tmin = actual_temperatures[std::distance(
@@ -217,6 +237,19 @@ int main(int argc, char *argv[])
     std::cerr << "No input files directory given." << std::endl;
     exit(1);
   }
+
+  speed_of_sound::SpeedOfSoundAlgorithm algorithm = speed_of_sound::ALGORITHM_UNESCO;
+  fit::FitFunction fitfunction = fit::FIT_QUADRATIC;
+
+  if (argc=3) {
+    std::string options(argv[2]);
+    if (options.find('l')!= std::string::npos)
+      algorithm = speed_of_sound::ALGORITHM_LEROY;
+    if (options.find('i')!= std::string::npos)
+      fitfunction = fit::FIT_IDEAL;
+  }
+
+
   auto dirs = fs::directory_iterator(argv[1]);
 
   std::vector<fs::directory_entry> paths(fs::begin(dirs), fs::end(dirs));
@@ -227,7 +260,7 @@ int main(int argc, char *argv[])
     if (/*fs::is_regular_file(path) && */ path.path().extension() == ".nc")
     {
       auto [points, temp_points,error_points] =
-          read_to_tree<double_t, uint64_t, value_t>(path);
+          read_to_tree<double_t, uint64_t, value_t>(path, algorithm);
       //#pragma omp task
       {
         globemesh.insert(points);
@@ -261,7 +294,7 @@ int main(int argc, char *argv[])
       {3.343785, 56.3836}     // North Sea
   };
 
-  const std::string OUTPUT_DIRECTORY = "output-" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count() / 86400000);
+  const std::string OUTPUT_DIRECTORY = "output-" + std::to_string(algorithm) + "-" + std::to_string(fitfunction) + "-" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count() / 86400000);
   fs::create_directory(OUTPUT_DIRECTORY);
   fs::create_directory(OUTPUT_DIRECTORY + "/power_spectra");
   fs::create_directory(OUTPUT_DIRECTORY + "/speed_of_sound");
@@ -369,7 +402,7 @@ int main(int argc, char *argv[])
       }
 
       {
-        std::ofstream fileout(OUTPUT_DIRECTORY + "/temp/" + location_string.str() + "." + std::to_string(i) + ".temp-results.csv");
+        std::ofstream fileout(OUTPUT_DIRECTORY + "/temp/" + location_string.str() + "." + std::to_string(k) + ".temp-results.csv");
 
         fileout << "days since 1950-01-01,date,average temperature across profiles" << std::endl;
         char date[11];
@@ -384,7 +417,7 @@ int main(int argc, char *argv[])
       try
       {
         auto power_spectrum = fit::analyse_periodicity(a,10);
-        std::ofstream fileout(OUTPUT_DIRECTORY + "/power_spectra/" + location_string.str() + "." + std::to_string(i) + ".ps-results.csv");
+        std::ofstream fileout(OUTPUT_DIRECTORY + "/power_spectra/" + location_string.str() + "." + std::to_string(k) + ".ps-results.csv");
         std::vector<double_t> absolutes(power_spectrum.size());
         std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) { return std::abs(a.second); });
         auto max = std::max_element(absolutes.begin(), absolutes.end());

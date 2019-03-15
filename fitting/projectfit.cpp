@@ -119,7 +119,7 @@ moving_average(const std::vector<double_t> &vector, const std::size_t period);
 
 template std::tuple<std::vector<float_t>, std::vector<float_t>> moving_average(const std::vector<float_t> &vector, const std::size_t period);
 
-template <typename T>
+template <typename T, FitFunction f>
 std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths, std::size_t averaging_granularity)
 {
   auto [avg_sos, sos_errors] = moving_average(speed_of_sound, averaging_granularity);
@@ -158,17 +158,30 @@ std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const s
   auto chisquared_depths = std::vector<double_t>(std::begin(avg_depths) + endindex, avg_depths.end());
   auto chisquared_sos = std::vector<double_t>(std::begin(avg_sos) + endindex, avg_sos.end());
   auto chisquared_errors = std::vector<double_t>(std::begin(sos_errors) + endindex, sos_errors.end());
-  Chisquared fcn(chisquared_depths, chisquared_sos, chisquared_errors);
+  Chisquared<f> fcn(chisquared_depths, chisquared_sos, chisquared_errors);
   ROOT::Minuit2::MnUserParameters upar;
-  /* upar.Add("c_0", 1000, 1);
-  upar.Add("c_1", 0, 1);
-  upar.Add("c_2", 0, 1);
+
+  switch (f)
+  {
+    case FIT_QUADRATIC:
+    upar.Add("c_0", 1000, 1);
+    upar.Add("c_1", 0, 1);
+    upar.Add("c_2", 0, 1);
+      /* code */
+      break;
+    case FIT_IDEAL:
+      upar.Add("z_1", 1000.0, 1.0);
+      upar.Add("B", 1.3, 1.0);
+      upar.Add("C_1", 1.5, 1.0);
+      upar.Add("gamma", 1, 1);
+      break;
+    default:
+      throw std::runtime_error("No specified algorithm");
+      break;
+  }
+  /* 
   */
 
-  upar.Add("z_1", 1000.0, 1.0);
-  upar.Add("B", 1.3, 1.0);
-  upar.Add("C_1", 1.5, 1.0);
-  upar.Add("gamma", 1, 1);
 
 
   ROOT::Minuit2::MnMigrad migrad(fcn, upar);
@@ -177,7 +190,7 @@ std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const s
 
   if (!min.IsValid() || std::isnan(err) || std::isnan(xmin) || xmin > avg_depths.back() || xmin < avg_depths.front() /*|| err > 20*/)
   {
-    throw std::runtime_error("out of region");
+    throw std::runtime_error("Fitted minimum invalid, probably out of region");
   }
   else
   {
@@ -185,8 +198,9 @@ std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const s
   }
 }
 
-template std::tuple<double_t,double_t> find_SOFAR_channel(const std::vector<double_t> &speed_of_sound, const std::vector<double_t> &depths, std::size_t averaging_granularity);
+template std::tuple<double_t,double_t> find_SOFAR_channel<double_t, FIT_IDEAL>(const std::vector<double_t> &speed_of_sound, const std::vector<double_t> &depths, std::size_t averaging_granularity);
 
+template std::tuple<double_t,double_t> find_SOFAR_channel<double_t, FIT_QUADRATIC>(const std::vector<double_t> &speed_of_sound, const std::vector<double_t> &depths, std::size_t averaging_granularity);
 } // namespace fit
 
 double bilinear_fit(const std::vector<double> &par, double d)
@@ -220,7 +234,8 @@ double ideal_sound_channel(const std::vector<double> &par, double z){
   return C_1 * (1 + eps * (eta + std::exp(-eta) - 1));
 }
 
-double Chisquared::operator()(const std::vector<double> &par) const
+template <>
+double Chisquared<fit::FIT_IDEAL>::operator()(const std::vector<double> &par) const
 {
   std::vector<double> fitted_speeds(this->depths.size());
   std::transform(this->depths.begin(), this->depths.end(),
@@ -238,8 +253,9 @@ double Chisquared::operator()(const std::vector<double> &par) const
   return result;
 }
 
+template<>
 std::vector<double>
-Chisquared::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min)
+Chisquared<fit::FIT_QUADRATIC>::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min)
 {
   std::vector<double> result(this->depths);
   auto par = min.UserState().Params();
@@ -248,11 +264,48 @@ Chisquared::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min)
   return result;
 }
 
-std::pair<double,double> Chisquared::function_minimum(ROOT::Minuit2::FunctionMinimum min){
+template <>
+std::pair<double,double> Chisquared<fit::FIT_IDEAL>::function_minimum(ROOT::Minuit2::FunctionMinimum min){
   /**  Calculates the minumum of the function, as well as the error, asssuming that a quadratic fitting function was used.
    */
   auto minCoeff = min.UserParameters().Params();
-  // return std::pair(-minCoeff[1] / (2 * minCoeff[2]), std::abs(-minCoeff[1] / (2 * minCoeff[2]))*std::sqrt(std::pow(min.UserParameters().Error(1)/minCoeff[1],2) + std::pow(min.UserParameters().Error(2)/minCoeff[2],2)));
 
   return std::pair(minCoeff[0], min.UserParameters().Error(0));
+}
+
+template <>
+double Chisquared<fit::FIT_QUADRATIC>::operator()(const std::vector<double> &par) const
+{
+  std::vector<double> fitted_speeds(this->depths.size());
+  std::transform(this->depths.begin(), this->depths.end(),
+                 fitted_speeds.begin(),
+                 [&par](double d) { return polynomial_fit(par, d); }
+                 );
+
+  double result = 0;
+
+  for (std::size_t i = 0; i < depths.size(); i++)
+  {
+    result += std::pow(fitted_speeds[i] - speed_of_sound[i], 2) / this->errors[i];
+  }
+  return result;
+}
+
+template<>
+std::vector<double>
+Chisquared<fit::FIT_IDEAL>::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min)
+{
+  std::vector<double> result(this->depths);
+  auto par = min.UserState().Params();
+  std::transform(result.begin(), result.end(), result.begin(),
+                 [&par](double d) { return ideal_sound_channel(par, d); });
+  return result;
+}
+
+template <>
+std::pair<double,double> Chisquared<fit::FIT_QUADRATIC>::function_minimum(ROOT::Minuit2::FunctionMinimum min){
+  /**  Calculates the minumum of the function, as well as the error, asssuming that a quadratic fitting function was used.
+   */
+  auto minCoeff = min.UserParameters().Params();
+  return std::pair(-minCoeff[1] / (2 * minCoeff[2]), std::abs(-minCoeff[1] / (2 * minCoeff[2]))*std::sqrt(std::pow(min.UserParameters().Error(1)/minCoeff[1],2) + std::pow(min.UserParameters().Error(2)/minCoeff[2],2)));
 }

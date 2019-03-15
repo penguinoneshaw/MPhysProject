@@ -10,7 +10,6 @@ power_spectra = system('ls power_spectra/*.csv')
 f(x) = a*x + b
 g(x) = f*x*x + g * x + h
 set key autotitle columnhead
-set key off
 
 do for [file in power_spectra] {
     filename = "./figures/" . system("basename " . file . " .csv") . ".png"
@@ -41,7 +40,7 @@ do for [file in speeds_of_sound] {
     set output filename
     set xdata time
     set format x "%Y"
-    set xlabel "Date"
+    set xlabel off
     set ylabel "Depth below sea level (m)"
     fit f(x) file u 2:3:4 zerror via a,b;
     fit g(x) file u 2:3:4 zerror via f,g,h;

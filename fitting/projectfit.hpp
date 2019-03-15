@@ -14,13 +14,20 @@
 
 namespace fit
 {
+
+enum FitFunction
+{
+  FIT_QUADRATIC,
+  FIT_IDEAL
+};
+
 std::vector<float> low_pass_filter(const std::vector<float> &vector, const std::size_t cutoff = 15);
 template <typename T>
 std::tuple<std::vector<T>, std::vector<T>> moving_average(const std::vector<T> &vector, const std::size_t period = 10);
 
 double ideal_sound_channel(const std::vector<double> &par, double z);
 
-template <typename T>
+template <typename T, FitFunction f = FIT_QUADRATIC>
 std::tuple<T, T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const std::vector<T> &depths, std::size_t averaging_granularity = 10);
 
 template <typename K, typename V>
@@ -40,7 +47,7 @@ std::map<double_t, std::complex<double_t>> analyse_periodicity(std::map<K, V> t_
     std::size_t abs_diff = it->first - prev->first;
     if (abs_diff > block_size)
     {
-      for (std::size_t i = 0; i < abs_diff; i+=block_size)
+      for (std::size_t i = 0; i < abs_diff; i += block_size)
       {
         input_vector.push_back(0);
       }
@@ -63,7 +70,7 @@ std::map<double_t, std::complex<double_t>> analyse_periodicity(std::map<K, V> t_
   fftw_execute(forward);
   fftw_destroy_plan(forward);
 
-  double_t freq_block = 1/((double_t) block_size * in.size());
+  double_t freq_block = 1 / ((double_t)block_size * in.size());
 
   std::map<double_t, std::complex<double_t>> output_map;
   for (std::size_t i = 0; i < FFT_ARRAY_SIZE; i++)
@@ -75,8 +82,10 @@ std::map<double_t, std::complex<double_t>> analyse_periodicity(std::map<K, V> t_
 
   return output_map;
 }
+
 } // namespace fit
 
+template <fit::FitFunction function>
 class Chisquared : public ROOT::Minuit2::FCNBase
 {
 private:
@@ -93,7 +102,7 @@ public:
   double operator()(const std::vector<double> &par) const;
 
   std::vector<double> fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min);
-  std::pair<double,double> function_minimum(ROOT::Minuit2::FunctionMinimum min);
+  std::pair<double, double> function_minimum(ROOT::Minuit2::FunctionMinimum min);
   double Up() const
   {
     return 1;

@@ -58,6 +58,11 @@ template <class T> T leroy_et_al(const T z, const T t, const T s, const T lat){
                     1.2e-6 * (lat-45) * z ;
 }
 
+enum SpeedOfSoundAlgorithm {
+  ALGORITHM_LEROY,
+  ALGORITHM_UNESCO
+};
+
 } // namespace speed_of_sound
 
 
