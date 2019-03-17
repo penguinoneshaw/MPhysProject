@@ -25,8 +25,8 @@
 
 #$ -pe omp 16
 
-export OMP_NUM_THREADS=${NSLOTS:-4}
-build/ProjectModelling ${1:-data} ${2}
+export OMP_NUM_THREADS=${NSLOTS:-8}
+build/ProjectModelling ${1:-data} ${2:-uq}
  
 # The ${n:-default} syntax looks for the n'th argument supplied to the
 # script, and substitutes default if this is empty.

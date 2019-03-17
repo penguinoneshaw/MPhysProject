@@ -38,7 +38,7 @@ read_to_tree(const fs::path &filepath, speed_of_sound::SpeedOfSoundAlgorithm met
   using namespace netCDF;
 
   NcFile datafile(filepath.string(), NcFile::read);
-
+  std::cout << filepath.string() << std::endl;
   static const std::size_t N_PROF = datafile.getDim("N_PROF").getSize();
   static const std::size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
 
@@ -240,14 +240,22 @@ int main(int argc, char *argv[])
 
   speed_of_sound::SpeedOfSoundAlgorithm algorithm = speed_of_sound::ALGORITHM_UNESCO;
   fit::FitFunction fitfunction = fit::FIT_QUADRATIC;
-
-  if (argc=3) {
+  try
+  {
+    if (argc==3) {
     std::string options(argv[2]);
     if (options.find('l')!= std::string::npos)
       algorithm = speed_of_sound::ALGORITHM_LEROY;
     if (options.find('i')!= std::string::npos)
       fitfunction = fit::FIT_IDEAL;
+    }
   }
+  catch(const std::logic_error& e)
+  {
+    std::cerr << e.what() << '\n';
+  }
+  
+
 
 
   auto dirs = fs::directory_iterator(argv[1]);
