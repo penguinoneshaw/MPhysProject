@@ -13,7 +13,7 @@ as its indexed variables. These can relatively easily be changed in the `main.cp
 ```zsh
 mkdir build
 cd build
-cmake3 .. -D CMAKE_BUILD_PARALLEL_LEVEL=4
+cmake3 .. -D CMAKE_BUILD_PARALLEL_LEVEL=4 -Dminuit2_omp:bool=TRUE
 cmake3 --build . --config Release -j 4
 cd ..
 build/ProjectModelling <directory name containing data>

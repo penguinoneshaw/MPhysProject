@@ -140,7 +140,7 @@ std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const s
   auto diff_avg_sos = differentiate(avg_depths, avg_sos);
 
   std::vector<size_t> maxima{0};
-  if (diff_avg_sos.size() < 5)
+  if (diff_avg_sos.size() < 5 || avg_depths.back() < 1000)
   {
     throw std::runtime_error("NOT ENOUGH DATA");
   }

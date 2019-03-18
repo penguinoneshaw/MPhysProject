@@ -40,7 +40,7 @@ do for [file in speeds_of_sound] {
     set output filename
     set xdata time
     set format x "%Y"
-    set xlabel off
+    set xlabel "Year"
     set ylabel "Depth below sea level (m)"
     fit f(x) file u 2:3:4 zerror via a,b;
     fit g(x) file u 2:3:4 zerror via f,g,h;

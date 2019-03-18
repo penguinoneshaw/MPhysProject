@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <complex>
+#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -10,10 +11,9 @@
 #include <numeric>
 #include <sstream>
 #include <stdexcept>
+#include <time.h>
 #include <tuple>
 #include <vector>
-#include <time.h>
-#include <ctime>
 
 #include "boost/filesystem.hpp"
 #include "ncChar.h"
@@ -27,13 +27,16 @@
 #include "speed_of_sound.hpp"
 
 namespace fs = boost::filesystem;
-constexpr int SECONDS_IN_DAY = 24*60*60;
+constexpr int SECONDS_IN_DAY = 24 * 60 * 60;
 
 template <typename T, typename K, typename V>
 std::tuple<std::vector<std::tuple<T, T, K, V>>,
            std::vector<std::tuple<T, T, K, V>>,
            std::vector<std::tuple<T, T, K, V>>>
-read_to_tree(const fs::path &filepath, speed_of_sound::SpeedOfSoundAlgorithm method = speed_of_sound::ALGORITHM_UNESCO, const fit::FitFunction fitfunction = fit::FIT_QUADRATIC)
+read_to_tree(const fs::path &filepath,
+             speed_of_sound::SpeedOfSoundAlgorithm method =
+                 speed_of_sound::ALGORITHM_UNESCO,
+             const fit::FitFunction fitfunction = fit::FIT_QUADRATIC)
 {
   using namespace netCDF;
 
@@ -45,7 +48,6 @@ read_to_tree(const fs::path &filepath, speed_of_sound::SpeedOfSoundAlgorithm met
   std::vector<std::tuple<T, T, K, V>> results;
   std::vector<std::tuple<T, T, K, V>> temp_results;
   std::vector<std::tuple<T, T, K, V>> error_results;
-
 
   // results.reserve(N_PROF);
 
@@ -72,7 +74,7 @@ read_to_tree(const fs::path &filepath, speed_of_sound::SpeedOfSoundAlgorithm met
   {
     throw std::runtime_error("File format not as expected.");
   }
-  #pragma omp critical
+#pragma omp critical
   {
     latsVar.getVar(lats.data());
     longsVar.getVar(lons.data());
@@ -101,7 +103,6 @@ read_to_tree(const fs::path &filepath, speed_of_sound::SpeedOfSoundAlgorithm met
     }
     catch (const netCDF::exceptions::NcInvalidCoords &e)
     {
-      std::cerr << filepath << ": " << e.what() << std::endl;
       break;
     }
 
@@ -124,16 +125,20 @@ read_to_tree(const fs::path &filepath, speed_of_sound::SpeedOfSoundAlgorithm met
     speed_of_sound_vec.reserve(N_LEVELS);
     actual_temperatures.reserve(N_LEVELS);
     std::vector<std::size_t> start{i, 0};
-    std::vector<std::size_t> count{1, tempVar.getDim(1).getSize()};
+    std::vector<std::size_t> temp_count{1, tempVar.getDim(1).getSize()};
+    std::vector<std::size_t> salinity_count{1, salinityVar.getDim(1).getSize()};
+    std::vector<std::size_t> depth_count{1, depthVar.getDim(1).getSize()};
+    std::vector<std::size_t> levelsQuality_count{
+        1, levelsQualityVar.getDim(1).getSize()};
 
     try
     {
 #pragma omp critical
       {
-        levelsQualityVar.getVar(start, count, levelQC.data());
-        salinityVar.getVar(start, count, salIn.data());
-        tempVar.getVar(start, count, tempIn.data());
-        depthVar.getVar(start, count, depthIn.data());
+        levelsQualityVar.getVar(start, levelsQuality_count, levelQC.data());
+        salinityVar.getVar(start, salinity_count, salIn.data());
+        tempVar.getVar(start, temp_count, tempIn.data());
+        depthVar.getVar(start, depth_count, depthIn.data());
       }
     }
     catch (const netCDF::exceptions::NcInvalidCoords &e)
@@ -150,17 +155,18 @@ read_to_tree(const fs::path &filepath, speed_of_sound::SpeedOfSoundAlgorithm met
 
       switch (method)
       {
-        case speed_of_sound::ALGORITHM_LEROY:
-          s = speed_of_sound::leroy_et_al((double_t)depthIn[j], (double_t)tempIn[j], (double_t)salIn[j], lat);
-          break;
-      
-        default:
-          s = speed_of_sound::speed_of_sound(
-              speed_of_sound::pressure_at_depth((double_t)depthIn[j], lat),
-              (double_t)tempIn[j], (double_t)salIn[j]);
-          break;
+      case speed_of_sound::ALGORITHM_LEROY:
+        s = speed_of_sound::leroy_et_al(
+            (double_t)depthIn[j], (double_t)tempIn[j], (double_t)salIn[j], lat);
+        break;
+
+      default:
+        s = speed_of_sound::speed_of_sound(
+            speed_of_sound::pressure_at_depth((double_t)depthIn[j], lat),
+            (double_t)tempIn[j], (double_t)salIn[j]);
+        break;
       }
-        
+
       speed_of_sound_vec.push_back(s);
       actual_depths.push_back((double_t)depthIn[j]);
       actual_temperatures.push_back(tempIn[j]);
@@ -180,13 +186,15 @@ read_to_tree(const fs::path &filepath, speed_of_sound::SpeedOfSoundAlgorithm met
       V xmin, errmin;
       switch (fitfunction)
       {
-        case fit::FIT_IDEAL:
-          std::tie(xmin, errmin) = fit::find_SOFAR_channel<V, fit::FIT_IDEAL>(speed_of_sound_vec, actual_depths, 3);
-          break;
-      
-        default:
-          std::tie(xmin, errmin) = fit::find_SOFAR_channel<V, fit::FIT_QUADRATIC>(speed_of_sound_vec, actual_depths, 3);
-          break;
+      case fit::FIT_IDEAL:
+        std::tie(xmin, errmin) = fit::find_SOFAR_channel<V, fit::FIT_IDEAL>(
+            speed_of_sound_vec, actual_depths, 3);
+        break;
+
+      default:
+        std::tie(xmin, errmin) = fit::find_SOFAR_channel<V, fit::FIT_QUADRATIC>(
+            speed_of_sound_vec, actual_depths, 3);
+        break;
       }
       if (xmin > actual_depths.back())
         continue;
@@ -195,7 +203,9 @@ read_to_tree(const fs::path &filepath, speed_of_sound::SpeedOfSoundAlgorithm met
           std::find_if(actual_depths.begin(), actual_depths.end(),
                        [xmin](auto a) { return a > xmin; }))];*/
 
-      auto tavg = std::accumulate(actual_temperatures.begin(), actual_temperatures.end(), 0) / ((V)actual_temperatures.size());
+      auto tavg = std::accumulate(actual_temperatures.begin(),
+                                  actual_temperatures.end(), 0) /
+                  ((V)actual_temperatures.size());
 
       const V result{xmin};
       results.push_back(std::tie(lon, lat, date, result));
@@ -215,7 +225,7 @@ read_to_tree(const fs::path &filepath, speed_of_sound::SpeedOfSoundAlgorithm met
     }
   }
 
-  return std::tie(results, temp_results,error_results);
+  return std::tie(results, temp_results, error_results);
 }
 
 int main(int argc, char *argv[])
@@ -238,25 +248,24 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
-  speed_of_sound::SpeedOfSoundAlgorithm algorithm = speed_of_sound::ALGORITHM_UNESCO;
+  speed_of_sound::SpeedOfSoundAlgorithm algorithm =
+      speed_of_sound::ALGORITHM_UNESCO;
   fit::FitFunction fitfunction = fit::FIT_QUADRATIC;
   try
   {
-    if (argc==3) {
-    std::string options(argv[2]);
-    if (options.find('l')!= std::string::npos)
-      algorithm = speed_of_sound::ALGORITHM_LEROY;
-    if (options.find('i')!= std::string::npos)
-      fitfunction = fit::FIT_IDEAL;
+    if (argc == 3)
+    {
+      std::string options(argv[2]);
+      if (options.find('l') != std::string::npos)
+        algorithm = speed_of_sound::ALGORITHM_LEROY;
+      if (options.find('i') != std::string::npos)
+        fitfunction = fit::FIT_IDEAL;
     }
   }
-  catch(const std::logic_error& e)
+  catch (const std::logic_error &e)
   {
     std::cerr << e.what() << '\n';
   }
-  
-
-
 
   auto dirs = fs::directory_iterator(argv[1]);
 
@@ -267,7 +276,7 @@ int main(int argc, char *argv[])
     auto path = paths[i];
     if (/*fs::is_regular_file(path) && */ path.path().extension() == ".nc")
     {
-      auto [points, temp_points,error_points] =
+      auto [points, temp_points, error_points] =
           read_to_tree<double_t, uint64_t, value_t>(path, algorithm);
       //#pragma omp task
       {
@@ -281,10 +290,9 @@ int main(int argc, char *argv[])
   tm start_date;
 
   start_date.tm_hour = 12;
-  start_date.tm_min =
-    start_date.tm_sec = 0;					// hours, minutes, seconds
-  start_date.tm_mon = start_date.tm_yday = 0;	// month, day
-  start_date.tm_year = 50;					// year, begining 1900
+  start_date.tm_min = start_date.tm_sec = 0;  // hours, minutes, seconds
+  start_date.tm_mon = start_date.tm_yday = 0; // month, day
+  start_date.tm_year = 50;                    // year, begining 1900
   start_date.tm_mday = 1;
 
   const time_t BASE_TIME = mktime(&start_date);
@@ -292,17 +300,22 @@ int main(int argc, char *argv[])
   std::cout << "[INFO]: Interpolation complete" << std::endl;
 
   std::vector<std::pair<double_t, double_t>> locations{
-      {-40.671900, 30.000}, // North Atlantic
-      {-14.442143, -30.000}, // South Atlantic
+      {-40.671900, 30.000},    // North Atlantic
+      {-14.442143, -30.000},   // South Atlantic
       {18.179810, 35.013669},  // Mediterranean
       {79.738750, -21.668352}, // Indian Ocean
       {114.008616, 15.425780}, // South China Sea
       {158.790808, 14.856203}, // Western Pacific
-      {-105.585039, 9.403472},  // Eastern Pacific
-      {3.343785, 56.3836}     // North Sea
+      {-105.585039, 9.403472}, // Eastern Pacific
+      {3.343785, 56.3836}      // North Sea
   };
 
-  const std::string OUTPUT_DIRECTORY = "output-" + std::to_string(algorithm) + "-" + std::to_string(fitfunction) + "-" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count() / 86400000);
+  const std::string OUTPUT_DIRECTORY =
+      "output-" + std::to_string(algorithm) + "-" +
+      std::to_string(fitfunction) + "-" +
+      std::to_string(
+          std::chrono::system_clock::now().time_since_epoch().count() /
+          86400000);
   fs::create_directory(OUTPUT_DIRECTORY);
   fs::create_directory(OUTPUT_DIRECTORY + "/power_spectra");
   fs::create_directory(OUTPUT_DIRECTORY + "/speed_of_sound");
@@ -319,15 +332,17 @@ int main(int argc, char *argv[])
 
       filename << (std::size_t)j << ".sos-results.csv";
       std::ofstream fileout(filename.str());
-      fileout << "days since 1950-01-01,date,speed of sound minimum depth (m),err"
-              << std::endl;
+      fileout
+          << "days since 1950-01-01,date,speed of sound minimum depth (m),err"
+          << std::endl;
 
       char date[11];
       for (auto i : a)
       {
         time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
         strftime(date, sizeof(date), "%F", localtime(&t));
-        fileout << i.first << ',' << date << "," << i.second << ','  << errors[i.first] << std::endl;
+        fileout << i.first << ',' << date << "," << i.second << ','
+                << errors[i.first] << std::endl;
       }
       fileout.close();
     }
@@ -338,33 +353,39 @@ int main(int argc, char *argv[])
 
       filename << (std::size_t)j << ".temp-results.csv";
       std::ofstream fileout(filename.str());
-      fileout << "days since 1950-01-01,date,average temperature across profiles" << std::endl;
+      fileout
+          << "days since 1950-01-01,date,average temperature across profiles"
+          << std::endl;
       char date[11];
       for (auto i : t)
       {
         time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
         strftime(date, sizeof(date), "%F", localtime(&t));
-        fileout << i.first  << ',' << date << "," << i.second << std::endl;
+        fileout << i.first << ',' << date << "," << i.second << std::endl;
       }
       fileout.close();
     }
 
     try
     {
-      auto power_spectrum = fit::analyse_periodicity(a,10);
+      auto power_spectrum = fit::analyse_periodicity(a, 10);
       std::stringstream filename_ps;
 
       filename_ps << OUTPUT_DIRECTORY + "/power_spectra/";
       filename_ps << (std::size_t)loc[0] << ".ps-results.csv";
       std::ofstream fileout(filename_ps.str());
       std::vector<double_t> absolutes(power_spectrum.size());
-      std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) { return std::abs(a.second); });
+      std::transform(power_spectrum.begin(), power_spectrum.end(),
+                     absolutes.begin(),
+                     [](auto a) { return std::abs(a.second); });
       auto max = std::max_element(absolutes.begin(), absolutes.end());
-      fileout << "frequency,Real,Imag,Normalised Power,Phase,Power" << std::endl;
+      fileout << "frequency,Real,Imag,Normalised Power,Phase,Power"
+              << std::endl;
       for (auto [f, i] : power_spectrum)
       {
-        fileout<< f << "," << i.real() << "," << i.imag() << "," << std::abs(i) / *max << ","
-                << std::arg(i) << "," << std::abs(i) << std::endl;
+        fileout << f << "," << i.real() << "," << i.imag() << ","
+                << std::abs(i) / *max << "," << std::arg(i) << ","
+                << std::abs(i) << std::endl;
       }
       fileout.close();
     }
@@ -385,58 +406,74 @@ int main(int argc, char *argv[])
     for (auto i : loc)
       location_string << (int)i;
 
-    file << location_string.str() << "," << locations[i].second << "," << locations[i].first << std::endl;
+    file << location_string.str() << "," << locations[i].second << ","
+         << locations[i].first << std::endl;
 
-    std::vector<int> mesh_depths {3,6};
+    std::vector<int> mesh_depths{3, 6};
 
-    for (int k: mesh_depths) {
+    for (int k : mesh_depths)
+    {
       auto a = globemesh.get_averaged_points(loc, k, 10);
       auto t = tempmesh.get_averaged_points(loc, k, 10);
       auto errors = errormesh.get_averaged_points(loc, k, 10);
 
       {
-        std::ofstream fileout(OUTPUT_DIRECTORY + "/speed_of_sound/" + location_string.str() + "." + std::to_string(k) + ".sos-results.csv");
-        fileout << "days since 1950-01-01,date,speed of sound minimum depth (m),err"
-                << std::endl;
+        std::ofstream fileout(OUTPUT_DIRECTORY + "/speed_of_sound/" +
+                              location_string.str() + "." + std::to_string(k) +
+                              ".sos-results.csv");
+        fileout
+            << "days since 1950-01-01,date,speed of sound minimum depth (m),err"
+            << std::endl;
 
         char date[11];
         for (auto i : a)
         {
           time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
           strftime(date, sizeof(date), "%F", localtime(&t));
-          fileout << i.first << ',' << date << "," << i.second << "," << errors[i.first] << std::endl;
+          fileout << i.first << ',' << date << "," << i.second << ","
+                  << errors[i.first] << std::endl;
         }
         fileout.close();
       }
 
       {
-        std::ofstream fileout(OUTPUT_DIRECTORY + "/temp/" + location_string.str() + "." + std::to_string(k) + ".temp-results.csv");
+        std::ofstream fileout(OUTPUT_DIRECTORY + "/temp/" +
+                              location_string.str() + "." + std::to_string(k) +
+                              ".temp-results.csv");
 
-        fileout << "days since 1950-01-01,date,average temperature across profiles" << std::endl;
+        fileout
+            << "days since 1950-01-01,date,average temperature across profiles"
+            << std::endl;
         char date[11];
         for (auto i : t)
         {
           time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
           strftime(date, sizeof(date), "%F", localtime(&t));
-          fileout << i.first  << ',' << date << "," << i.second << std::endl;
+          fileout << i.first << ',' << date << "," << i.second << std::endl;
         }
         fileout.close();
       }
       try
       {
-        auto power_spectrum = fit::analyse_periodicity(a,10);
-        std::ofstream fileout(OUTPUT_DIRECTORY + "/power_spectra/" + location_string.str() + "." + std::to_string(k) + ".ps-results.csv");
+        auto power_spectrum = fit::analyse_periodicity(a, 10);
+        std::ofstream fileout(OUTPUT_DIRECTORY + "/power_spectra/" +
+                              location_string.str() + "." + std::to_string(k) +
+                              ".ps-results.csv");
         std::vector<double_t> absolutes(power_spectrum.size());
-        std::transform(power_spectrum.begin(), power_spectrum.end(), absolutes.begin(), [](auto a) { return std::abs(a.second); });
+        std::transform(power_spectrum.begin(), power_spectrum.end(),
+                       absolutes.begin(),
+                       [](auto a) { return std::abs(a.second); });
         auto max = std::max_element(absolutes.begin(), absolutes.end());
-        fileout << "frequency,Real,Imag,Normalised Power,Phase,Power" << std::endl;
+        fileout << "frequency,Real,Imag,Normalised Power,Phase,Power"
+                << std::endl;
 
-		unsigned int period = (*a.end()).first - (*a.begin()).first;
+        unsigned int period = (*a.end()).first - (*a.begin()).first;
         for (auto [f, i] : power_spectrum)
         {
 
-          fileout << f << "," << i.real() << "," << i.imag() << "," << std::abs(i) / *max << ","
-                  << std::arg(i) << "," << std::abs(i) << std::endl;
+          fileout << f << "," << i.real() << "," << i.imag() << ","
+                  << std::abs(i) / *max << "," << std::arg(i) << ","
+                  << std::abs(i) << std::endl;
         }
 
         fileout.close();
@@ -446,7 +483,6 @@ int main(int argc, char *argv[])
         std::cerr << e.what() << std::endl;
         continue;
       }
-
     }
   }
   file.close();
