@@ -140,7 +140,7 @@ std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const s
   auto diff_avg_sos = differentiate(avg_depths, avg_sos);
 
   std::vector<size_t> maxima{0};
-  if (diff_avg_sos.size() < 5 || avg_depths.back() < 1000)
+  if (diff_avg_sos.size() < 5|| avg_depths.back() < 1000)
   {
     throw std::runtime_error("NOT ENOUGH DATA");
   }
@@ -255,7 +255,7 @@ double Chisquared<fit::FIT_IDEAL>::operator()(const std::vector<double> &par) co
 
 template<>
 std::vector<double>
-Chisquared<fit::FIT_QUADRATIC>::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min)
+Chisquared<fit::FIT_QUADRATIC>::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min) const
 {
   std::vector<double> result(this->depths);
   auto par = min.UserState().Params();
@@ -265,7 +265,7 @@ Chisquared<fit::FIT_QUADRATIC>::fitted_to_minimisation(ROOT::Minuit2::FunctionMi
 }
 
 template <>
-std::pair<double,double> Chisquared<fit::FIT_IDEAL>::function_minimum(ROOT::Minuit2::FunctionMinimum min){
+std::pair<double,double> Chisquared<fit::FIT_IDEAL>::function_minimum(ROOT::Minuit2::FunctionMinimum min) const {
   /**  Calculates the minumum of the function, as well as the error, asssuming that a quadratic fitting function was used.
    */
   auto minCoeff = min.UserParameters().Params();
@@ -293,7 +293,7 @@ double Chisquared<fit::FIT_QUADRATIC>::operator()(const std::vector<double> &par
 
 template<>
 std::vector<double>
-Chisquared<fit::FIT_IDEAL>::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min)
+Chisquared<fit::FIT_IDEAL>::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min) const
 {
   std::vector<double> result(this->depths);
   auto par = min.UserState().Params();
@@ -303,7 +303,7 @@ Chisquared<fit::FIT_IDEAL>::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimu
 }
 
 template <>
-std::pair<double,double> Chisquared<fit::FIT_QUADRATIC>::function_minimum(ROOT::Minuit2::FunctionMinimum min){
+std::pair<double,double> Chisquared<fit::FIT_QUADRATIC>::function_minimum(ROOT::Minuit2::FunctionMinimum min) const{
   /**  Calculates the minumum of the function, as well as the error, asssuming that a quadratic fitting function was used.
    */
   auto minCoeff = min.UserParameters().Params();

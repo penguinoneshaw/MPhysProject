@@ -36,8 +36,7 @@ std::tuple<std::vector<std::tuple<T, T, K, V>>,
 read_to_tree(const fs::path &filepath,
              speed_of_sound::SpeedOfSoundAlgorithm method =
                  speed_of_sound::ALGORITHM_UNESCO,
-             const fit::FitFunction fitfunction = fit::FIT_QUADRATIC)
-{
+             const fit::FitFunction fitfunction = fit::FIT_QUADRATIC) {
   using namespace netCDF;
 
   NcFile datafile(filepath.string(), NcFile::read);
@@ -70,8 +69,7 @@ read_to_tree(const fs::path &filepath,
       lons(longsVar.getDim(0).getSize(), 0);
   std::vector<double_t> dates(dateVar.getDim(0).getSize(), 0);
 
-  if (tempVar.isNull() || depthVar.isNull() || salinityVar.isNull())
-  {
+  if (tempVar.isNull() || depthVar.isNull() || salinityVar.isNull()) {
     throw std::runtime_error("File format not as expected.");
   }
 #pragma omp critical
@@ -81,10 +79,8 @@ read_to_tree(const fs::path &filepath,
     dateVar.getVar(dates.data());
   }
 
-  for (std::size_t i = 0; i < N_PROF; i++)
-  {
-    try
-    {
+  for (std::size_t i = 0; i < N_PROF; i++) {
+    try {
       uint32_t profile_qc;
 
       char position_qc = 0;
@@ -94,15 +90,12 @@ read_to_tree(const fs::path &filepath,
       positionQualityVar.getVar(std::vector<size_t>{i}, &position_qc);
       tempQualityVar.getVar(std::vector<size_t>{i}, &potm_qc);
 
-      if ((profile_qc & 0b11) != 0 || position_qc == 4 || potm_qc == 4)
-      {
+      if ((profile_qc & 0b11) != 0 || position_qc == 4 || potm_qc == 4) {
         // std::cerr << "Rejected profile " << i << " with code " << profile_qc
         // << std::endl;
         continue;
       }
-    }
-    catch (const netCDF::exceptions::NcInvalidCoords &e)
-    {
+    } catch (const netCDF::exceptions::NcInvalidCoords &e) {
       break;
     }
 
@@ -131,8 +124,7 @@ read_to_tree(const fs::path &filepath,
     std::vector<std::size_t> levelsQuality_count{
         1, levelsQualityVar.getDim(1).getSize()};
 
-    try
-    {
+    try {
 #pragma omp critical
       {
         levelsQualityVar.getVar(start, levelsQuality_count, levelQC.data());
@@ -140,21 +132,17 @@ read_to_tree(const fs::path &filepath,
         tempVar.getVar(start, temp_count, tempIn.data());
         depthVar.getVar(start, depth_count, depthIn.data());
       }
-    }
-    catch (const netCDF::exceptions::NcInvalidCoords &e)
-    {
+    } catch (const netCDF::exceptions::NcInvalidCoords &e) {
       std::cerr << filepath << ": " << e.what() << std::endl;
       break;
     }
 
-    for (std::size_t j = 0; j < N_LEVELS; j++)
-    {
+    for (std::size_t j = 0; j < N_LEVELS; j++) {
       if ((levelQC[j] & 0b11) != 0 || std::isnan(levelQC[j]))
         continue;
       T s;
 
-      switch (method)
-      {
+      switch (method) {
       case speed_of_sound::ALGORITHM_LEROY:
         s = speed_of_sound::leroy_et_al(
             (double_t)depthIn[j], (double_t)tempIn[j], (double_t)salIn[j], lat);
@@ -172,8 +160,7 @@ read_to_tree(const fs::path &filepath,
       actual_temperatures.push_back(tempIn[j]);
     }
 
-    if (actual_depths.size() < 10)
-    {
+    if (actual_depths.size() < 10) {
       continue;
     };
 
@@ -181,11 +168,9 @@ read_to_tree(const fs::path &filepath,
     actual_depths.shrink_to_fit();
     actual_temperatures.shrink_to_fit();
 
-    try
-    {
+    try {
       V xmin, errmin;
-      switch (fitfunction)
-      {
+      switch (fitfunction) {
       case fit::FIT_IDEAL:
         std::tie(xmin, errmin) = fit::find_SOFAR_channel<V, fit::FIT_IDEAL>(
             speed_of_sound_vec, actual_depths, 3);
@@ -218,9 +203,7 @@ read_to_tree(const fs::path &filepath,
       const V result_temp{tavg};
 
       temp_results.push_back(std::tie(lon, lat, date, result_temp));
-    }
-    catch (std::runtime_error e)
-    {
+    } catch (std::runtime_error e) {
       continue;
     }
   }
@@ -228,8 +211,7 @@ read_to_tree(const fs::path &filepath,
   return std::tie(results, temp_results, error_results);
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   typedef double_t value_t;
   typedef oQTM_Mesh<double_t, uint64_t, value_t, 6> mesh_t;
   /*if (argc == 1 || !fs::is_directory(argv[1]))
@@ -242,8 +224,7 @@ int main(int argc, char *argv[])
   mesh_t tempmesh;
   oQTM_Mesh<double_t, uint64_t, value_t, 6, true> errormesh;
 
-  if (argc == 1)
-  {
+  if (argc == 1) {
     std::cerr << "No input files directory given." << std::endl;
     exit(1);
   }
@@ -251,33 +232,33 @@ int main(int argc, char *argv[])
   speed_of_sound::SpeedOfSoundAlgorithm algorithm =
       speed_of_sound::ALGORITHM_UNESCO;
   fit::FitFunction fitfunction = fit::FIT_QUADRATIC;
-  try
-  {
-    if (argc == 3)
-    {
+  try {
+    if (argc == 3) {
       std::string options(argv[2]);
       if (options.find('l') != std::string::npos)
         algorithm = speed_of_sound::ALGORITHM_LEROY;
       if (options.find('i') != std::string::npos)
         fitfunction = fit::FIT_IDEAL;
     }
-  }
-  catch (const std::logic_error &e)
-  {
+  } catch (const std::logic_error &e) {
     std::cerr << e.what() << '\n';
+  }
+
+  uint64_t GRANULARITY = 10;
+
+  if (argc == 4) {
+    GRANULARITY = std::stoi(argv[3]);
   }
 
   auto dirs = fs::directory_iterator(argv[1]);
 
   std::vector<fs::directory_entry> paths(fs::begin(dirs), fs::end(dirs));
   //#pragma omp parallel
-  for (std::size_t i = 0; i < paths.size(); i++)
-  {
+  for (std::size_t i = 0; i < paths.size(); i++) {
     auto path = paths[i];
-    if (/*fs::is_regular_file(path) && */ path.path().extension() == ".nc")
-    {
+    if (/*fs::is_regular_file(path) && */ path.path().extension() == ".nc") {
       auto [points, temp_points, error_points] =
-          read_to_tree<double_t, uint64_t, value_t>(path, algorithm);
+          read_to_tree<double_t, uint64_t, value_t>(path, algorithm, fitfunction);
       //#pragma omp task
       {
         globemesh.insert(points);
@@ -316,16 +297,16 @@ int main(int argc, char *argv[])
       std::to_string(
           std::chrono::system_clock::now().time_since_epoch().count() /
           86400000);
+
   fs::create_directory(OUTPUT_DIRECTORY);
   fs::create_directory(OUTPUT_DIRECTORY + "/power_spectra");
   fs::create_directory(OUTPUT_DIRECTORY + "/speed_of_sound");
   fs::create_directory(OUTPUT_DIRECTORY + "/temp");
-  for (uint8_t j = 0; j < 8; j++)
-  {
+  for (uint8_t j = 0; j < 8; j++) {
     auto loc = mesh_t::location_t{j};
-    auto a = globemesh.get_averaged_points(loc, 1, 10);
-    auto t = tempmesh.get_averaged_points(loc, 1, 10);
-    auto errors = errormesh.get_averaged_points(loc, 1, 10);
+    auto a = globemesh.get_averaged_points(loc, 1, GRANULARITY);
+    auto t = tempmesh.get_averaged_points(loc, 1, GRANULARITY);
+    auto errors = errormesh.get_averaged_points(loc, 1, GRANULARITY);
     {
       std::stringstream filename;
       filename << OUTPUT_DIRECTORY + "/speed_of_sound/";
@@ -337,8 +318,7 @@ int main(int argc, char *argv[])
           << std::endl;
 
       char date[11];
-      for (auto i : a)
-      {
+      for (auto i : a) {
         time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
         strftime(date, sizeof(date), "%F", localtime(&t));
         fileout << i.first << ',' << date << "," << i.second << ','
@@ -357,8 +337,7 @@ int main(int argc, char *argv[])
           << "days since 1950-01-01,date,average temperature across profiles"
           << std::endl;
       char date[11];
-      for (auto i : t)
-      {
+      for (auto i : t) {
         time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
         strftime(date, sizeof(date), "%F", localtime(&t));
         fileout << i.first << ',' << date << "," << i.second << std::endl;
@@ -366,9 +345,8 @@ int main(int argc, char *argv[])
       fileout.close();
     }
 
-    try
-    {
-      auto power_spectrum = fit::analyse_periodicity(a, 10);
+    try {
+      auto power_spectrum = fit::analyse_periodicity(a, GRANULARITY);
       std::stringstream filename_ps;
 
       filename_ps << OUTPUT_DIRECTORY + "/power_spectra/";
@@ -381,16 +359,13 @@ int main(int argc, char *argv[])
       auto max = std::max_element(absolutes.begin(), absolutes.end());
       fileout << "frequency,Real,Imag,Normalised Power,Phase,Power"
               << std::endl;
-      for (auto [f, i] : power_spectrum)
-      {
+      for (auto [f, i] : power_spectrum) {
         fileout << f << "," << i.real() << "," << i.imag() << ","
                 << std::abs(i) / *max << "," << std::arg(i) << ","
                 << std::abs(i) << std::endl;
       }
       fileout.close();
-    }
-    catch (std::runtime_error e)
-    {
+    } catch (std::runtime_error e) {
       std::cerr << e.what() << std::endl;
       continue;
     }
@@ -398,8 +373,7 @@ int main(int argc, char *argv[])
 
   //#pragma omp parallel for
   std::ofstream file("location_dict.csv");
-  for (std::size_t i = 0; i < locations.size(); i++)
-  {
+  for (std::size_t i = 0; i < locations.size(); i++) {
     auto loc = globemesh.location(locations[i].first, locations[i].second);
     std::stringstream location_string;
 
@@ -411,11 +385,10 @@ int main(int argc, char *argv[])
 
     std::vector<int> mesh_depths{3, 6};
 
-    for (int k : mesh_depths)
-    {
-      auto a = globemesh.get_averaged_points(loc, k, 10);
-      auto t = tempmesh.get_averaged_points(loc, k, 10);
-      auto errors = errormesh.get_averaged_points(loc, k, 10);
+    for (int k : mesh_depths) {
+      auto a = globemesh.get_averaged_points(loc, k, GRANULARITY);
+      auto t = tempmesh.get_averaged_points(loc, k, GRANULARITY);
+      auto errors = errormesh.get_averaged_points(loc, k, GRANULARITY);
 
       {
         std::ofstream fileout(OUTPUT_DIRECTORY + "/speed_of_sound/" +
@@ -426,8 +399,7 @@ int main(int argc, char *argv[])
             << std::endl;
 
         char date[11];
-        for (auto i : a)
-        {
+        for (auto i : a) {
           time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
           strftime(date, sizeof(date), "%F", localtime(&t));
           fileout << i.first << ',' << date << "," << i.second << ","
@@ -445,17 +417,15 @@ int main(int argc, char *argv[])
             << "days since 1950-01-01,date,average temperature across profiles"
             << std::endl;
         char date[11];
-        for (auto i : t)
-        {
+        for (auto i : t) {
           time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
           strftime(date, sizeof(date), "%F", localtime(&t));
           fileout << i.first << ',' << date << "," << i.second << std::endl;
         }
         fileout.close();
       }
-      try
-      {
-        auto power_spectrum = fit::analyse_periodicity(a, 10);
+      try {
+        auto power_spectrum = fit::analyse_periodicity(a, GRANULARITY);
         std::ofstream fileout(OUTPUT_DIRECTORY + "/power_spectra/" +
                               location_string.str() + "." + std::to_string(k) +
                               ".ps-results.csv");
@@ -468,8 +438,7 @@ int main(int argc, char *argv[])
                 << std::endl;
 
         unsigned int period = (*a.end()).first - (*a.begin()).first;
-        for (auto [f, i] : power_spectrum)
-        {
+        for (auto [f, i] : power_spectrum) {
 
           fileout << f << "," << i.real() << "," << i.imag() << ","
                   << std::abs(i) / *max << "," << std::arg(i) << ","
@@ -477,9 +446,7 @@ int main(int argc, char *argv[])
         }
 
         fileout.close();
-      }
-      catch (std::runtime_error e)
-      {
+      } catch (std::runtime_error e) {
         std::cerr << e.what() << std::endl;
         continue;
       }

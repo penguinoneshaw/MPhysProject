@@ -59,8 +59,8 @@ template <class T> T leroy_et_al(const T z, const T t, const T s, const T lat){
 }
 
 enum SpeedOfSoundAlgorithm {
-  ALGORITHM_LEROY,
-  ALGORITHM_UNESCO
+  ALGORITHM_UNESCO,
+  ALGORITHM_LEROY
 };
 
 } // namespace speed_of_sound

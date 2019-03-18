@@ -104,8 +104,8 @@ public:
 
   double operator()(const std::vector<double> &par) const;
 
-  std::vector<double> fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min);
-  std::pair<double, double> function_minimum(ROOT::Minuit2::FunctionMinimum min);
+  std::vector<double> fitted_to_minimisation(ROOT::Minuit2::FunctionMinimum min) const;
+  std::pair<double, double> function_minimum(ROOT::Minuit2::FunctionMinimum min) const;
   double Up() const
   {
     return 1;
