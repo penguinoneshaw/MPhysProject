@@ -183,14 +183,17 @@ read_to_tree(const fs::path &filepath,
       }
       if (xmin > actual_depths.back())
         continue;
-      /*auto tmin = actual_temperatures[std::distance(
+      auto tmin = actual_temperatures[std::distance(
           actual_depths.begin(),
           std::find_if(actual_depths.begin(), actual_depths.end(),
-                       [xmin](auto a) { return a > xmin; }))];*/
+                       [xmin](auto a) { return a > xmin; }))];
 
-      auto tavg = std::accumulate(actual_temperatures.begin(),
-                                  actual_temperatures.end(), 0) /
-                  ((V)actual_temperatures.size());
+      auto tsurf = actual_temperatures[0];
+      auto tdiff = tmin - tsurf;
+
+      // auto tavg = std::accumulate(actual_temperatures.begin(),
+      //                            actual_temperatures.end(), 0) /
+      //            ((V)actual_temperatures.size());
 
       const V result{xmin};
       results.push_back(std::tie(lon, lat, date, result));
@@ -198,9 +201,9 @@ read_to_tree(const fs::path &filepath,
       const V error{errmin};
       error_results.push_back(std::tie(lon, lat, date, error));
 
-      if (tavg < -20 || tavg > 20.0)
+      if (tdiff < -40 || tdiff > 40.0)
         continue;
-      const V result_temp{tavg};
+      const V result_temp{tdiff};
 
       temp_results.push_back(std::tie(lon, lat, date, result_temp));
     } catch (std::runtime_error e) {
@@ -233,7 +236,7 @@ int main(int argc, char *argv[]) {
       speed_of_sound::ALGORITHM_UNESCO;
   fit::FitFunction fitfunction = fit::FIT_QUADRATIC;
   try {
-    if (argc == 3) {
+    if (argc >= 3) {
       std::string options(argv[2]);
       if (options.find('l') != std::string::npos)
         algorithm = speed_of_sound::ALGORITHM_LEROY;
@@ -246,7 +249,7 @@ int main(int argc, char *argv[]) {
 
   uint64_t GRANULARITY = 10;
 
-  if (argc == 4) {
+  if (argc >= 4) {
     GRANULARITY = std::stoi(argv[3]);
   }
 
@@ -334,7 +337,7 @@ int main(int argc, char *argv[]) {
       filename << (std::size_t)j << ".temp-results.csv";
       std::ofstream fileout(filename.str());
       fileout
-          << "days since 1950-01-01,date,average temperature across profiles"
+          << "days since 1950-01-01,date,sea surface temperatures"
           << std::endl;
       char date[11];
       for (auto i : t) {
@@ -414,7 +417,7 @@ int main(int argc, char *argv[]) {
                               ".temp-results.csv");
 
         fileout
-            << "days since 1950-01-01,date,average temperature across profiles"
+            << "days since 1950-01-01,date,sea surface temperatures"
             << std::endl;
         char date[11];
         for (auto i : t) {

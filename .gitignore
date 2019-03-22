@@ -47,8 +47,7 @@ build/*
 *.txt
 *.dat
 images/*
-output*/**
-output_prev/**
+*output*/**
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
@@ -63,3 +62,6 @@ data
 ._*
 *.log
 *.csv
+
+
+__pycache__

@@ -104,7 +104,7 @@ std::tuple<std::vector<T>, std::vector<T>> moving_average(const std::vector<T> &
   {
     output.push_back(std::accumulate(it,
                                      it + period, (T)0) /
-                     static_cast<T>(period));
+                       ((T) period));
     errors.push_back(std::accumulate(it,
                                      it + period, (T)0, [&output](auto a, auto b) { return a + (b - output.back()) * (b - output.back()); }) /
                      (T)(period - 1));
@@ -140,7 +140,7 @@ std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const s
   auto diff_avg_sos = differentiate(avg_depths, avg_sos);
 
   std::vector<size_t> maxima{0};
-  if (diff_avg_sos.size() < 5|| avg_depths.back() < 1000)
+  if (diff_avg_sos.size() < 5)
   {
     throw std::runtime_error("NOT ENOUGH DATA");
   }
@@ -153,8 +153,9 @@ std::tuple<T,T> find_SOFAR_channel(const std::vector<T> &speed_of_sound, const s
     }
   }
 
-  std::size_t endindex = maxima.back() == avg_sos.size() - 1 ? 0 : maxima.back();
+  std::size_t endindex = maxima.back() >= avg_sos.size() - 10 ? 0 : maxima.back();
 
+  //std::size_t endindex = 0;
   auto chisquared_depths = std::vector<double_t>(std::begin(avg_depths) + endindex, avg_depths.end());
   auto chisquared_sos = std::vector<double_t>(std::begin(avg_sos) + endindex, avg_sos.end());
   auto chisquared_errors = std::vector<double_t>(std::begin(sos_errors) + endindex, sos_errors.end());
@@ -248,7 +249,7 @@ double Chisquared<fit::FIT_IDEAL>::operator()(const std::vector<double> &par) co
 
   for (std::size_t i = 0; i < depths.size(); i++)
   {
-    result += std::pow(fitted_speeds[i] - speed_of_sound[i], 2) / this->errors[i];
+    result += std::pow(fitted_speeds[i] - speed_of_sound[i], 2)/fitted_speeds[i];// / this->errors[i];
   }
   return result;
 }
@@ -286,7 +287,7 @@ double Chisquared<fit::FIT_QUADRATIC>::operator()(const std::vector<double> &par
 
   for (std::size_t i = 0; i < depths.size(); i++)
   {
-    result += std::pow(fitted_speeds[i] - speed_of_sound[i], 2) / this->errors[i];
+    result += std::pow(fitted_speeds[i] - speed_of_sound[i], 2)/ this->errors[i];
   }
   return result;
 }
@@ -303,7 +304,7 @@ Chisquared<fit::FIT_IDEAL>::fitted_to_minimisation(ROOT::Minuit2::FunctionMinimu
 }
 
 template <>
-std::pair<double,double> Chisquared<fit::FIT_QUADRATIC>::function_minimum(ROOT::Minuit2::FunctionMinimum min) const{
+std::pair<double,double> Chisquared<fit::FIT_QUADRATIC>::function_minimum(ROOT::Minuit2::FunctionMinimum min) const {
   /**  Calculates the minumum of the function, as well as the error, asssuming that a quadratic fitting function was used.
    */
   auto minCoeff = min.UserParameters().Params();

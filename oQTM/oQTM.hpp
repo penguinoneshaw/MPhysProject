@@ -53,7 +53,7 @@ public:
   };
   ~oQTM_Quadrant(){};
 
-  const std::array<subtree_ptr, 4> get_subtrees()
+  const std::array<subtree_ptr, 4> get_subtrees() const
   {
     return subtrees;
   }
@@ -68,7 +68,7 @@ public:
     data.insert(std::pair(key, value));
   }
 
-  const std::multimap<K, V> get_data()
+  const std::multimap<K, V> get_data() const
   {
     if (is_datalayer())
     {
