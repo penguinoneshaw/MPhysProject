@@ -80,6 +80,7 @@ read_to_tree(const fs::path &filepath,
   }
 
   for (std::size_t i = 0; i < N_PROF; i++) {
+    // Iterate over profiles
     try {
       uint32_t profile_qc;
 
@@ -91,8 +92,7 @@ read_to_tree(const fs::path &filepath,
       tempQualityVar.getVar(std::vector<size_t>{i}, &potm_qc);
 
       if ((profile_qc & 0b11) != 0 || position_qc == 4 || potm_qc == 4) {
-        // std::cerr << "Rejected profile " << i << " with code " << profile_qc
-        // << std::endl;
+        // Skip if the profile fails a quality check — see the datasource for details
         continue;
       }
     } catch (const netCDF::exceptions::NcInvalidCoords &e) {
@@ -102,6 +102,7 @@ read_to_tree(const fs::path &filepath,
     T lat = lats[i], lon = lons[i];
     K date = dates[i];
 
+    // reserve space in all data for a profile 
     std::vector<float_t> tempIn(tempVar.getDim(0).getSize(),
                                 std::nan("nodata"));
     std::vector<float_t> salIn(salinityVar.getDim(0).getSize(),
@@ -114,6 +115,8 @@ read_to_tree(const fs::path &filepath,
     std::vector<double_t> actual_depths, actual_temperatures;
     std::vector<double_t> speed_of_sound_vec;
 
+
+    // Read in data
     actual_depths.reserve(N_LEVELS);
     speed_of_sound_vec.reserve(N_LEVELS);
     actual_temperatures.reserve(N_LEVELS);
@@ -125,7 +128,7 @@ read_to_tree(const fs::path &filepath,
         1, levelsQualityVar.getDim(1).getSize()};
 
     try {
-#pragma omp critical
+      #pragma omp critical
       {
         levelsQualityVar.getVar(start, levelsQuality_count, levelQC.data());
         salinityVar.getVar(start, salinity_count, salIn.data());
@@ -137,18 +140,19 @@ read_to_tree(const fs::path &filepath,
       break;
     }
 
+    // Process to a speed of sound profile
     for (std::size_t j = 0; j < N_LEVELS; j++) {
       if ((levelQC[j] & 0b11) != 0 || std::isnan(levelQC[j]))
         continue;
       T s;
-
+      // This is probably templatable
       switch (method) {
       case speed_of_sound::ALGORITHM_LEROY:
         s = speed_of_sound::leroy_et_al(
             (double_t)depthIn[j], (double_t)tempIn[j], (double_t)salIn[j], lat);
         break;
 
-      default:
+      case speed_of_sound::ALGORITHM_UNESCO:
         s = speed_of_sound::speed_of_sound(
             speed_of_sound::pressure_at_depth((double_t)depthIn[j], lat),
             (double_t)tempIn[j], (double_t)salIn[j]);
@@ -160,6 +164,7 @@ read_to_tree(const fs::path &filepath,
       actual_temperatures.push_back(tempIn[j]);
     }
 
+    // Validate that there's enough data to continue
     if (actual_depths.size() < 10) {
       continue;
     };
@@ -305,6 +310,7 @@ int main(int argc, char *argv[]) {
   fs::create_directory(OUTPUT_DIRECTORY + "/power_spectra");
   fs::create_directory(OUTPUT_DIRECTORY + "/speed_of_sound");
   fs::create_directory(OUTPUT_DIRECTORY + "/temp");
+
   for (uint8_t j = 0; j < 8; j++) {
     auto loc = mesh_t::location_t{j};
     auto a = globemesh.get_averaged_points(loc, 1, GRANULARITY);
@@ -440,7 +446,7 @@ int main(int argc, char *argv[]) {
         fileout << "frequency,Real,Imag,Normalised Power,Phase,Power"
                 << std::endl;
 
-        unsigned int period = (*a.end()).first - (*a.begin()).first;
+        unsigned int period = a.end()->first - a.begin()->first;
         for (auto [f, i] : power_spectrum) {
 
           fileout << f << "," << i.real() << "," << i.imag() << ","
