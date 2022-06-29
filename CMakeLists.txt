@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.12)
 project(ProjectModelling VERSION 1.0.0)
 
-add_compile_options(-Wextra -Wnon-virtual-dtor -pedantic)
+add_compile_options(-Wextra -Wnon-virtual-dtor -pedantic -fconcepts)
 
 find_package(OpenMP REQUIRED)
 find_package(Boost REQUIRED COMPONENTS iostreams system filesystem)
-#find_package(Minuit2)
+
 add_subdirectory(Minuit2)
 
 find_library(NCDFC NAMES netcdf_c++4 netcdf-cxx4)
@@ -21,9 +21,13 @@ if (NOT NCDFC)
 endif()
 
 
-set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD 17)
-set_property(TARGET ProjectModelling PROPERTY CXX_STANDARD_REQUIRED ON)
-target_compile_features(ProjectModelling PRIVATE cxx_variable_templates cxx_lambdas cxx_lambda_init_captures )
+set_target_properties(ProjectModelling PROPERTIES CXX_STANDARD 20 
+    CXX_STANDARD_REQUIRED TRUE 
+    CXX_EXTENSIONS TRUE
+    )
+
+target_compile_features(ProjectModelling PRIVATE cxx_variable_templates cxx_lambdas cxx_lambda_init_captures cxx_digit_separators)
+target_compile_options(ProjectModelling PRIVATE -fconcepts)
 
 if(HOME)
 target_include_directories(ProjectModelling PRIVATE "${HOME}/include")

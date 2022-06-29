@@ -29,197 +29,220 @@
 namespace fs = boost::filesystem;
 constexpr int SECONDS_IN_DAY = 24 * 60 * 60;
 
-template <typename T, typename K, typename V>
-std::tuple<std::vector<std::tuple<T, T, K, V>>,
-           std::vector<std::tuple<T, T, K, V>>,
-           std::vector<std::tuple<T, T, K, V>>>
-read_to_tree(const fs::path &filepath,
-             speed_of_sound::SpeedOfSoundAlgorithm method =
-                 speed_of_sound::ALGORITHM_UNESCO,
-             const fit::FitFunction fitfunction = fit::FIT_QUADRATIC) {
-  using namespace netCDF;
+namespace project
+{
 
-  NcFile datafile(filepath.string(), NcFile::read);
-  std::cout << filepath.string() << std::endl;
-  static const std::size_t N_PROF = datafile.getDim("N_PROF").getSize();
-  static const std::size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
-
-  std::vector<std::tuple<T, T, K, V>> results;
-  std::vector<std::tuple<T, T, K, V>> temp_results;
-  std::vector<std::tuple<T, T, K, V>> error_results;
-
-  // results.reserve(N_PROF);
-
-  NcVar latsVar, longsVar, dateVar, platformVar, tempVar, depthVar, salinityVar,
-      profileQualityVar, levelsQualityVar, positionQualityVar, tempQualityVar;
-  latsVar = datafile.getVar("LATITUDE");
-  longsVar = datafile.getVar("LONGITUDE");
-  dateVar = datafile.getVar("JULD");
-
-  tempVar = datafile.getVar("POTM_CORRECTED");
-  depthVar = datafile.getVar("DEPH_CORRECTED");
-  salinityVar = datafile.getVar("PSAL_CORRECTED");
-
-  profileQualityVar = datafile.getVar("QC_FLAGS_PROFILES");
-  levelsQualityVar = datafile.getVar("QC_FLAGS_LEVELS");
-  positionQualityVar = datafile.getVar("POSITION_QC");
-  tempQualityVar = datafile.getVar("PROFILE_POTM_QC");
-
-  std::vector<double_t> lats(latsVar.getDim(0).getSize(), 0),
-      lons(longsVar.getDim(0).getSize(), 0);
-  std::vector<double_t> dates(dateVar.getDim(0).getSize(), 0);
-
-  if (tempVar.isNull() || depthVar.isNull() || salinityVar.isNull()) {
-    throw std::runtime_error("File format not as expected.");
-  }
-#pragma omp critical
+  template <typename T, typename K, typename V>
+  std::tuple<std::vector<std::tuple<T, T, K, V>>,
+             std::vector<std::tuple<T, T, K, V>>,
+             std::vector<std::tuple<T, T, K, V>>>
+  read_to_tree(const fs::path &filepath,
+               speed_of_sound::SpeedOfSoundAlgorithm method =
+                   speed_of_sound::ALGORITHM_UNESCO,
+               const fit::FitFunction fitfunction = fit::FIT_QUADRATIC)
   {
-    latsVar.getVar(lats.data());
-    longsVar.getVar(lons.data());
-    dateVar.getVar(dates.data());
-  }
+    using namespace netCDF;
 
-  for (std::size_t i = 0; i < N_PROF; i++) {
-    // Iterate over profiles
-    try {
-      uint32_t profile_qc;
+    NcFile datafile(filepath.string(), NcFile::read);
+    std::cout << filepath.string() << std::endl;
+    static const std::size_t N_PROF = datafile.getDim("N_PROF").getSize();
+    static const std::size_t N_LEVELS = datafile.getDim("N_LEVELS").getSize();
 
-      char position_qc = 0;
-      char potm_qc = 0;
+    std::vector<std::tuple<T, T, K, V>> results;
+    std::vector<std::tuple<T, T, K, V>> temp_results;
+    std::vector<std::tuple<T, T, K, V>> error_results;
 
-      profileQualityVar.getVar(std::vector<size_t>{i}, &profile_qc);
-      positionQualityVar.getVar(std::vector<size_t>{i}, &position_qc);
-      tempQualityVar.getVar(std::vector<size_t>{i}, &potm_qc);
+    // results.reserve(N_PROF);
 
-      if ((profile_qc & 0b11) != 0 || position_qc == 4 || potm_qc == 4) {
-        // Skip if the profile fails a quality check — see the datasource for details
-        continue;
-      }
-    } catch (const netCDF::exceptions::NcInvalidCoords &e) {
-      break;
+    NcVar latsVar, longsVar, dateVar, platformVar, tempVar, depthVar, salinityVar,
+        profileQualityVar, levelsQualityVar, positionQualityVar, tempQualityVar;
+    latsVar = datafile.getVar("LATITUDE");
+    longsVar = datafile.getVar("LONGITUDE");
+    dateVar = datafile.getVar("JULD");
+
+    tempVar = datafile.getVar("POTM_CORRECTED");
+    depthVar = datafile.getVar("DEPH_CORRECTED");
+    salinityVar = datafile.getVar("PSAL_CORRECTED");
+
+    profileQualityVar = datafile.getVar("QC_FLAGS_PROFILES");
+    levelsQualityVar = datafile.getVar("QC_FLAGS_LEVELS");
+    positionQualityVar = datafile.getVar("POSITION_QC");
+    tempQualityVar = datafile.getVar("PROFILE_POTM_QC");
+
+    std::vector<double_t> lats(latsVar.getDim(0).getSize(), 0),
+        lons(longsVar.getDim(0).getSize(), 0);
+    std::vector<double_t> dates(dateVar.getDim(0).getSize(), 0);
+
+    if (tempVar.isNull() || depthVar.isNull() || salinityVar.isNull())
+    {
+      throw std::runtime_error("File format not as expected.");
+    }
+#pragma omp critical
+    {
+      latsVar.getVar(lats.data());
+      longsVar.getVar(lons.data());
+      dateVar.getVar(dates.data());
     }
 
-    T lat = lats[i], lon = lons[i];
-    K date = dates[i];
-
-    // reserve space in all data for a profile 
-    std::vector<float_t> tempIn(tempVar.getDim(0).getSize(),
-                                std::nan("nodata"));
-    std::vector<float_t> salIn(salinityVar.getDim(0).getSize(),
-                               std::nan("nodata"));
-    std::vector<float_t> depthIn(depthVar.getDim(0).getSize(),
-                                 std::nan("nodata"));
-    std::vector<uint32_t> levelQC(levelsQualityVar.getDim(0).getSize(),
-                                  std::nan("nodata"));
-
-    std::vector<double_t> actual_depths, actual_temperatures;
-    std::vector<double_t> speed_of_sound_vec;
-
-
-    // Read in data
-    actual_depths.reserve(N_LEVELS);
-    speed_of_sound_vec.reserve(N_LEVELS);
-    actual_temperatures.reserve(N_LEVELS);
-    std::vector<std::size_t> start{i, 0};
-    std::vector<std::size_t> temp_count{1, tempVar.getDim(1).getSize()};
-    std::vector<std::size_t> salinity_count{1, salinityVar.getDim(1).getSize()};
-    std::vector<std::size_t> depth_count{1, depthVar.getDim(1).getSize()};
-    std::vector<std::size_t> levelsQuality_count{
-        1, levelsQualityVar.getDim(1).getSize()};
-
-    try {
-      #pragma omp critical
+    for (std::size_t i = 0; i < N_PROF; i++)
+    {
+      // Iterate over profiles
+      try
       {
-        levelsQualityVar.getVar(start, levelsQuality_count, levelQC.data());
-        salinityVar.getVar(start, salinity_count, salIn.data());
-        tempVar.getVar(start, temp_count, tempIn.data());
-        depthVar.getVar(start, depth_count, depthIn.data());
+        uint32_t profile_qc;
+
+        char position_qc = 0;
+        char potm_qc = 0;
+
+        profileQualityVar.getVar(std::vector<size_t>{i}, &profile_qc);
+        positionQualityVar.getVar(std::vector<size_t>{i}, &position_qc);
+        tempQualityVar.getVar(std::vector<size_t>{i}, &potm_qc);
+
+        if ((profile_qc & 0b11) != 0 || position_qc == 4 || potm_qc == 4)
+        {
+          // Skip if the profile fails a quality check — see the datasource for details
+          continue;
+        }
       }
-    } catch (const netCDF::exceptions::NcInvalidCoords &e) {
-      std::cerr << filepath << ": " << e.what() << std::endl;
-      break;
-    }
-
-    // Process to a speed of sound profile
-    for (std::size_t j = 0; j < N_LEVELS; j++) {
-      if ((levelQC[j] & 0b11) != 0 || std::isnan(levelQC[j]))
-        continue;
-      T s;
-      // This is probably templatable
-      switch (method) {
-      case speed_of_sound::ALGORITHM_LEROY:
-        s = speed_of_sound::leroy_et_al(
-            (double_t)depthIn[j], (double_t)tempIn[j], (double_t)salIn[j], lat);
-        break;
-
-      case speed_of_sound::ALGORITHM_UNESCO:
-        s = speed_of_sound::speed_of_sound(
-            speed_of_sound::pressure_at_depth((double_t)depthIn[j], lat),
-            (double_t)tempIn[j], (double_t)salIn[j]);
+      catch (const netCDF::exceptions::NcInvalidCoords &e)
+      {
         break;
       }
 
-      speed_of_sound_vec.push_back(s);
-      actual_depths.push_back((double_t)depthIn[j]);
-      actual_temperatures.push_back(tempIn[j]);
-    }
+      T lat = lats[i], lon = lons[i];
+      K date = dates[i];
 
-    // Validate that there's enough data to continue
-    if (actual_depths.size() < 10) {
-      continue;
-    };
+      // reserve space in all data for a profile
+      std::vector<float_t> tempIn(tempVar.getDim(0).getSize(),
+                                  std::nan("nodata"));
+      std::vector<float_t> salIn(salinityVar.getDim(0).getSize(),
+                                 std::nan("nodata"));
+      std::vector<float_t> depthIn(depthVar.getDim(0).getSize(),
+                                   std::nan("nodata"));
+      std::vector<uint32_t> levelQC(levelsQualityVar.getDim(0).getSize(),
+                                    std::nan("nodata"));
 
-    speed_of_sound_vec.shrink_to_fit();
-    actual_depths.shrink_to_fit();
-    actual_temperatures.shrink_to_fit();
+      std::vector<double_t> actual_depths, actual_temperatures;
+      std::vector<double_t> speed_of_sound_vec;
 
-    try {
-      V xmin, errmin;
-      switch (fitfunction) {
-      case fit::FIT_IDEAL:
-        std::tie(xmin, errmin) = fit::find_SOFAR_channel<V, fit::FIT_IDEAL>(
-            speed_of_sound_vec, actual_depths, 3);
-        break;
+      // Read in data
+      actual_depths.reserve(N_LEVELS);
+      speed_of_sound_vec.reserve(N_LEVELS);
+      actual_temperatures.reserve(N_LEVELS);
+      std::vector<std::size_t> start{i, 0};
+      std::vector<std::size_t> temp_count{1, tempVar.getDim(1).getSize()};
+      std::vector<std::size_t> salinity_count{1, salinityVar.getDim(1).getSize()};
+      std::vector<std::size_t> depth_count{1, depthVar.getDim(1).getSize()};
+      std::vector<std::size_t> levelsQuality_count{
+          1, levelsQualityVar.getDim(1).getSize()};
 
-      default:
-        std::tie(xmin, errmin) = fit::find_SOFAR_channel<V, fit::FIT_QUADRATIC>(
-            speed_of_sound_vec, actual_depths, 3);
+      try
+      {
+#pragma omp critical
+        {
+          levelsQualityVar.getVar(start, levelsQuality_count, levelQC.data());
+          salinityVar.getVar(start, salinity_count, salIn.data());
+          tempVar.getVar(start, temp_count, tempIn.data());
+          depthVar.getVar(start, depth_count, depthIn.data());
+        }
+      }
+      catch (const netCDF::exceptions::NcInvalidCoords &e)
+      {
+        std::cerr << filepath << ": " << e.what() << std::endl;
         break;
       }
-      if (xmin > actual_depths.back())
+
+      // Process to a speed of sound profile
+      for (std::size_t j = 0; j < N_LEVELS; j++)
+      {
+        if ((levelQC[j] & 0b11) != 0 || std::isnan(levelQC[j]))
+          continue;
+        T s;
+        // This is probably templatable
+        switch (method)
+        {
+        case speed_of_sound::ALGORITHM_LEROY:
+          s = speed_of_sound::leroy_et_al(
+              (double_t)depthIn[j], (double_t)tempIn[j], (double_t)salIn[j], lat);
+          break;
+
+        case speed_of_sound::ALGORITHM_UNESCO:
+          s = speed_of_sound::speed_of_sound(
+              speed_of_sound::pressure_at_depth((double_t)depthIn[j], lat),
+              (double_t)tempIn[j], (double_t)salIn[j]);
+          break;
+        }
+
+        speed_of_sound_vec.push_back(s);
+        actual_depths.push_back((double_t)depthIn[j]);
+        actual_temperatures.push_back(tempIn[j]);
+      }
+
+      // Validate that there's enough data to continue
+      if (actual_depths.size() < 10)
+      {
         continue;
-      auto tmin = actual_temperatures[std::distance(
-          actual_depths.begin(),
-          std::find_if(actual_depths.begin(), actual_depths.end(),
-                       [xmin](auto a) { return a > xmin; }))];
+      };
 
-      auto tsurf = actual_temperatures[0];
-      auto tdiff = tmin - tsurf;
+      speed_of_sound_vec.shrink_to_fit();
+      actual_depths.shrink_to_fit();
+      actual_temperatures.shrink_to_fit();
 
-      // auto tavg = std::accumulate(actual_temperatures.begin(),
-      //                            actual_temperatures.end(), 0) /
-      //            ((V)actual_temperatures.size());
+      try
+      {
+        V xmin, errmin;
+        switch (fitfunction)
+        {
+        case fit::FIT_IDEAL:
+          std::tie(xmin, errmin) = fit::find_SOFAR_channel<V, fit::FIT_IDEAL>(
+              speed_of_sound_vec, actual_depths, 3);
+          break;
 
-      const V result{xmin};
-      results.push_back(std::tie(lon, lat, date, result));
+        default:
+          std::tie(xmin, errmin) = fit::find_SOFAR_channel<V, fit::FIT_QUADRATIC>(
+              speed_of_sound_vec, actual_depths, 3);
+          break;
+        }
+        if (xmin > actual_depths.back())
+          continue;
+        auto tmin = actual_temperatures[std::distance(
+            actual_depths.begin(),
+            std::find_if(actual_depths.begin(), actual_depths.end(),
+                         [xmin](auto a)
+                         { return a > xmin; }))];
 
-      const V error{errmin};
-      error_results.push_back(std::tie(lon, lat, date, error));
+        auto tsurf = actual_temperatures[0];
+        auto tdiff = tmin - tsurf;
 
-      if (tdiff < -40 || tdiff > 40.0)
+        // auto tavg = std::accumulate(actual_temperatures.begin(),
+        //                            actual_temperatures.end(), 0) /
+        //            ((V)actual_temperatures.size());
+
+        const V result{xmin};
+        results.push_back(std::tie(lon, lat, date, result));
+
+        const V error{errmin};
+        error_results.push_back(std::tie(lon, lat, date, error));
+
+        if (tdiff < -40 || tdiff > 40.0)
+          continue;
+        const V result_temp{tdiff};
+
+        temp_results.push_back(std::tie(lon, lat, date, result_temp));
+      }
+      catch (std::runtime_error e)
+      {
         continue;
-      const V result_temp{tdiff};
-
-      temp_results.push_back(std::tie(lon, lat, date, result_temp));
-    } catch (std::runtime_error e) {
-      continue;
+      }
     }
+
+    return std::tie(results, temp_results, error_results);
   }
-
-  return std::tie(results, temp_results, error_results);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
+  using namespace project;
   typedef double_t value_t;
   typedef oQTM_Mesh<double_t, uint64_t, value_t, 6> mesh_t;
   /*if (argc == 1 || !fs::is_directory(argv[1]))
@@ -232,7 +255,8 @@ int main(int argc, char *argv[]) {
   mesh_t tempmesh;
   oQTM_Mesh<double_t, uint64_t, value_t, 6, true> errormesh;
 
-  if (argc == 1) {
+  if (argc == 1)
+  {
     std::cerr << "No input files directory given." << std::endl;
     exit(1);
   }
@@ -240,21 +264,26 @@ int main(int argc, char *argv[]) {
   speed_of_sound::SpeedOfSoundAlgorithm algorithm =
       speed_of_sound::ALGORITHM_UNESCO;
   fit::FitFunction fitfunction = fit::FIT_QUADRATIC;
-  try {
-    if (argc >= 3) {
+  try
+  {
+    if (argc >= 3)
+    {
       std::string options(argv[2]);
       if (options.find('l') != std::string::npos)
         algorithm = speed_of_sound::ALGORITHM_LEROY;
       if (options.find('i') != std::string::npos)
         fitfunction = fit::FIT_IDEAL;
     }
-  } catch (const std::logic_error &e) {
+  }
+  catch (const std::logic_error &e)
+  {
     std::cerr << e.what() << '\n';
   }
 
   uint64_t GRANULARITY = 10;
 
-  if (argc >= 4) {
+  if (argc >= 4)
+  {
     GRANULARITY = std::stoi(argv[3]);
   }
 
@@ -262,9 +291,11 @@ int main(int argc, char *argv[]) {
 
   std::vector<fs::directory_entry> paths(fs::begin(dirs), fs::end(dirs));
   //#pragma omp parallel
-  for (std::size_t i = 0; i < paths.size(); i++) {
+  for (std::size_t i = 0; i < paths.size(); i++)
+  {
     auto path = paths[i];
-    if (/*fs::is_regular_file(path) && */ path.path().extension() == ".nc") {
+    if (/*fs::is_regular_file(path) && */ path.path().extension() == ".nc")
+    {
       auto [points, temp_points, error_points] =
           read_to_tree<double_t, uint64_t, value_t>(path, algorithm, fitfunction);
       //#pragma omp task
@@ -311,7 +342,8 @@ int main(int argc, char *argv[]) {
   fs::create_directory(OUTPUT_DIRECTORY + "/speed_of_sound");
   fs::create_directory(OUTPUT_DIRECTORY + "/temp");
 
-  for (uint8_t j = 0; j < 8; j++) {
+  for (uint8_t j = 0; j < 8; j++)
+  {
     auto loc = mesh_t::location_t{j};
     auto a = globemesh.get_averaged_points(loc, 1, GRANULARITY);
     auto t = tempmesh.get_averaged_points(loc, 1, GRANULARITY);
@@ -327,7 +359,8 @@ int main(int argc, char *argv[]) {
           << std::endl;
 
       char date[11];
-      for (auto i : a) {
+      for (auto i : a)
+      {
         time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
         strftime(date, sizeof(date), "%F", localtime(&t));
         fileout << i.first << ',' << date << "," << i.second << ','
@@ -345,16 +378,22 @@ int main(int argc, char *argv[]) {
       fileout
           << "days since 1950-01-01,date,sea surface temperatures"
           << std::endl;
+
       char date[11];
-      for (auto i : t) {
+      for (auto i : t)
+      {
         time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
+
         strftime(date, sizeof(date), "%F", localtime(&t));
+
         fileout << i.first << ',' << date << "," << i.second << std::endl;
       }
+
       fileout.close();
     }
 
-    try {
+    try
+    {
       auto power_spectrum = fit::analyse_periodicity(a, GRANULARITY);
       std::stringstream filename_ps;
 
@@ -364,17 +403,23 @@ int main(int argc, char *argv[]) {
       std::vector<double_t> absolutes(power_spectrum.size());
       std::transform(power_spectrum.begin(), power_spectrum.end(),
                      absolutes.begin(),
-                     [](auto a) { return std::abs(a.second); });
+                     [](auto a)
+                     { return std::abs(a.second); });
+
       auto max = std::max_element(absolutes.begin(), absolutes.end());
       fileout << "frequency,Real,Imag,Normalised Power,Phase,Power"
               << std::endl;
-      for (auto [f, i] : power_spectrum) {
+
+      for (auto [f, i] : power_spectrum)
+      {
         fileout << f << "," << i.real() << "," << i.imag() << ","
                 << std::abs(i) / *max << "," << std::arg(i) << ","
                 << std::abs(i) << std::endl;
       }
       fileout.close();
-    } catch (std::runtime_error e) {
+    }
+    catch (std::runtime_error e)
+    {
       std::cerr << e.what() << std::endl;
       continue;
     }
@@ -382,7 +427,8 @@ int main(int argc, char *argv[]) {
 
   //#pragma omp parallel for
   std::ofstream file("location_dict.csv");
-  for (std::size_t i = 0; i < locations.size(); i++) {
+  for (std::size_t i = 0; i < locations.size(); i++)
+  {
     auto loc = globemesh.location(locations[i].first, locations[i].second);
     std::stringstream location_string;
 
@@ -394,7 +440,8 @@ int main(int argc, char *argv[]) {
 
     std::vector<int> mesh_depths{3, 6};
 
-    for (int k : mesh_depths) {
+    for (int k : mesh_depths)
+    {
       auto a = globemesh.get_averaged_points(loc, k, GRANULARITY);
       auto t = tempmesh.get_averaged_points(loc, k, GRANULARITY);
       auto errors = errormesh.get_averaged_points(loc, k, GRANULARITY);
@@ -408,7 +455,8 @@ int main(int argc, char *argv[]) {
             << std::endl;
 
         char date[11];
-        for (auto i : a) {
+        for (auto i : a)
+        {
           time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
           strftime(date, sizeof(date), "%F", localtime(&t));
           fileout << i.first << ',' << date << "," << i.second << ","
@@ -426,14 +474,17 @@ int main(int argc, char *argv[]) {
             << "days since 1950-01-01,date,sea surface temperatures"
             << std::endl;
         char date[11];
-        for (auto i : t) {
+        for (auto i : t)
+        {
           time_t t = BASE_TIME + i.first * SECONDS_IN_DAY;
           strftime(date, sizeof(date), "%F", localtime(&t));
           fileout << i.first << ',' << date << "," << i.second << std::endl;
         }
         fileout.close();
       }
-      try {
+
+      try
+      {
         auto power_spectrum = fit::analyse_periodicity(a, GRANULARITY);
         std::ofstream fileout(OUTPUT_DIRECTORY + "/power_spectra/" +
                               location_string.str() + "." + std::to_string(k) +
@@ -441,13 +492,15 @@ int main(int argc, char *argv[]) {
         std::vector<double_t> absolutes(power_spectrum.size());
         std::transform(power_spectrum.begin(), power_spectrum.end(),
                        absolutes.begin(),
-                       [](auto a) { return std::abs(a.second); });
+                       [](auto a)
+                       { return std::abs(a.second); });
         auto max = std::max_element(absolutes.begin(), absolutes.end());
         fileout << "frequency,Real,Imag,Normalised Power,Phase,Power"
                 << std::endl;
 
         unsigned int period = a.end()->first - a.begin()->first;
-        for (auto [f, i] : power_spectrum) {
+        for (auto [f, i] : power_spectrum)
+        {
 
           fileout << f << "," << i.real() << "," << i.imag() << ","
                   << std::abs(i) / *max << "," << std::arg(i) << ","
@@ -455,7 +508,9 @@ int main(int argc, char *argv[]) {
         }
 
         fileout.close();
-      } catch (std::runtime_error e) {
+      }
+      catch (std::runtime_error e)
+      {
         std::cerr << e.what() << std::endl;
         continue;
       }
