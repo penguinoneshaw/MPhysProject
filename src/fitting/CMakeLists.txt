@@ -15,7 +15,7 @@ add_library(ProjectFit STATIC
 )
 
 target_compile_features(ProjectFit PRIVATE cxx_std_23)
-target_include_directories(ProjectFit PRIVATE "../")
+target_include_directories(ProjectFit PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
 # Link FFTW from Conan (required)
 target_link_libraries(ProjectFit PUBLIC fftw::fftw)

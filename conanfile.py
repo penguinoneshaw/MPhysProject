@@ -16,14 +16,14 @@ class ProjectModellingConan(ConanFile):
         "threads": [True, False],
     }
     default_options = {"shared": False, "fPIC": True, "simd": "avx2", "threads": True}
-    requires = ("fftw/3.3.10", "netcdf/4.8.1")
+    requires = ("fftw/3.3.10", "netcdf/4.8.1", "boost/1.86.0")
+
+    test_requires = ("gtest/1.15.0",)
     generators = "CMakeDeps", "CMakeToolchain"
     exports_sources = (
         "CMakeLists.txt",
         "src/*",
-        "fitting/*",
-        "grapher/*",
-        "pythonfile/*",
+        "python/*",
         "*.hpp",
         "*.cpp",
     )
@@ -39,6 +39,18 @@ class ProjectModellingConan(ConanFile):
         self.options["fftw"].simd = self.options.simd
         self.options["fftw"].precision_longdouble = False
         
+        # Boost: only build what gnuplot-iostream actually needs
+        self.options["boost"].without_iostreams = False
+        self.options["boost"].without_filesystem = False
+        self.options["boost"].without_system = False
+        # everything else off
+        for comp in ["chrono", "cobalt", "container", "context", "contract",
+                    "coroutine", "date_time", "exception", "fiber", "graph",
+                    "graph_parallel", "json", "locale", "log", "math",
+                    "mpi", "nowide", "program_options", "python",
+                    "serialization", "stacktrace", "test", "thread",
+                    "timer", "type_erasure", "url", "wave"]:
+            setattr(self.options["boost"], f"without_{comp}", True)
 
     def layout(self):
         cmake_layout(self)
