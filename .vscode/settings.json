@@ -76,13 +76,13 @@
     "set": "cpp",
     "stack": "cpp"
   },
-  "C_Cpp.configurationWarnings": "Disabled",
-  "spellright.language": [
-    "en"
-  ],
-  "spellright.documentTypes": [
-    "markdown",
-    "latex"
-  ],
-  "python.pythonPath": "/bin/python3"
+  "C_Cpp.configurationWarnings": "enabled","C_Cpp.intelliSenseEngine": "disabled",
+  "spellright.language": ["en"],
+  "spellright.documentTypes": ["markdown", "latex"],
+  "python.pythonPath": "/bin/python3",
+  "nix.enableLanguageServer": true,
+  "lldb.displayFormat": "auto",
+  "lldb.showDisassembly": "auto",
+  "lldb.dereferencePointers": true,
+  "lldb.consoleMode": "commands"
 }

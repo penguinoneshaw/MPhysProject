@@ -1,47 +1,49 @@
-cmake_minimum_required(VERSION 3.12)
-project(ProjectModelling VERSION 1.0.0)
+cmake_minimum_required(VERSION 3.20)
+project(ProjectModelling VERSION 1.0.0 LANGUAGES CXX)
 
-add_compile_options(-Wextra -Wnon-virtual-dtor -pedantic -fconcepts)
+# Compiler warnings
+add_compile_options(-Wextra -Wall -Wnon-virtual-dtor -Wpedantic)
 
-find_package(OpenMP REQUIRED)
-find_package(Boost REQUIRED COMPONENTS iostreams system filesystem)
+# Address sanitizer for debugging (optional, uncomment to enable)
+# add_compile_options(-fsanitize=address)
+# add_link_options(-fsanitize=address)
 
-add_subdirectory(Minuit2)
+# Find Conan-managed dependencies (required)
+find_package(FFTW3 REQUIRED CONFIG)
+find_package(netCDF REQUIRED CONFIG)
 
-find_library(NCDFC NAMES netcdf_c++4 netcdf-cxx4)
-find_library(NCDF NAMES netcdf libnetcdf)
-
-add_executable(ProjectModelling main.cpp)
-add_subdirectory(fitting)
-add_subdirectory(grapher)
-
-if (NOT NCDFC)
-    add_subdirectory(netcdf-cxx4)
-    set (NCDFC netcdf-cxx4)
+# Find or build Minuit2 (required)
+find_package(ROOT QUIET CONFIG)
+if(NOT ROOT_FOUND)
+  # Build Minuit2 from submodule if ROOT not found
+  message(STATUS "ROOT not found, building Minuit2 from submodule")
+  add_subdirectory(Minuit2)
+else()
+  message(STATUS "ROOT found at ${ROOT_DIR}")
 endif()
 
 
-set_target_properties(ProjectModelling PROPERTIES CXX_STANDARD 20 
-    CXX_STANDARD_REQUIRED TRUE 
-    CXX_EXTENSIONS TRUE
-    )
 
-target_compile_features(ProjectModelling PRIVATE cxx_variable_templates cxx_lambdas cxx_lambda_init_captures cxx_digit_separators)
-target_compile_options(ProjectModelling PRIVATE -fconcepts)
+find_library(netCDFCXX REQUIRED NAMES netcdf_c++4 netcdf-c++4  netcdf-cxx4)
 
-if(HOME)
-target_include_directories(ProjectModelling PRIVATE "${HOME}/include")
-target_include_directories(ProjectFit PRIVATE "${HOME}/include")
-endif(HOME)
 
+# Add executable
+add_executable(ProjectModelling main.cpp)
+target_compile_features(ProjectModelling PRIVATE cxx_std_23)
+
+# Add subdirectories
+add_subdirectory(fitting)
+add_subdirectory(grapher)
+
+# Link libraries
+target_link_libraries(ProjectModelling PRIVATE
+  ProjectFit
+  Grapher
+  netCDF::netcdf
+  ${netCDFCXX}
+)
+
+# CPack configuration
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
-
-target_link_libraries(ProjectModelling PUBLIC ProjectFit)
-target_link_libraries(ProjectModelling PRIVATE OpenMP::OpenMP_CXX ${Boost_LIBRARIES} Minuit2::Minuit2)
-
-target_link_libraries(ProjectModelling PRIVATE ${NCDF})
-target_link_libraries(ProjectModelling PRIVATE ${NCDFC})
-
-

@@ -48,6 +48,15 @@ build/*
 *.dat
 images/*
 *output*/**
+
+# Conan
+conan.lock
+conandeps.cmake
+deactivate_conanbuild.sh
+activate_conanbuild.sh
+conaninfo.txt
+generators/
+CMakeUserPresets.json
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
@@ -65,3 +74,15 @@ data
 
 
 __pycache__
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+
+result
+.cache

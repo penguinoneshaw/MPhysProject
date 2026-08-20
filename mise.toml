@@ -1,0 +1,10 @@
+[tools]
+cmake = "latest"
+ninja = "latest"
+make = "latest"
+clang = "latest"
+conan = "latest"
+uv = "latest"
+
+[env]
+CONAN_HOME="$HOME/.conan"
